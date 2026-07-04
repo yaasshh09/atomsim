@@ -4,7 +4,7 @@ A physically rigorous, deeply customizable quantum-mechanical atom model and
 visualization platform — portfolio project, teaching tool, and self-directed
 physics sandbox.
 
-![CI](https://github.com/OWNER/atom_sim/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/yaasshh09/atomsim/actions/workflows/ci.yml/badge.svg)
 
 **Prime directive: the model never quietly lies about physics.** Every quantity
 carries provenance:
