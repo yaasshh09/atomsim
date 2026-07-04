@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($cpu = Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name; $ram = [math]::Round\\(\\(Get-CimInstance Win32_ComputerSystem\\).TotalPhysicalMemory / 1GB, 1\\); $gpus = \\(Get-CimInstance Win32_VideoController | ForEach-Object { \"$\\($_.Name\\) \\($\\([math]::Round\\($_.AdapterRAM/1GB,1\\)\\) GB VRAM reported\\)\" }\\) -join '; '; \"CPU: $cpu\"; \"RAM: $ram GB\"; \"GPU\\(s\\): $gpus\")",
+      "PowerShell(foreach \\($tool in 'git','conda','mamba','node','npm','python','gh','code'\\) { $cmd = Get-Command $tool -ErrorAction SilentlyContinue; if \\($cmd\\) { $ver = try { & $tool --version 2>$null | Select-Object -First 1 } catch { 'found' }; \"$tool : $ver\" } else { \"$tool : NOT INSTALLED\" } })",
+      "PowerShell(foreach \\($tool in 'conda','mamba','node','npm'\\) { $cmd = Get-Command $tool -ErrorAction SilentlyContinue; if \\($cmd\\) { \"$tool : $\\(\\(& $tool --version 2>$null | Select-Object -First 1\\)\\)\" } else { \"$tool : not on PATH\" } }; $mf = \"$env:USERPROFILE\\\\miniforge3\"; if \\(Test-Path $mf\\) { \"miniforge3 dir: $mf exists\" } else { \"miniforge3 dir: not at default location\" })",
+      "PowerShell($spots = @\\(\"C:\\\\Program Files\\\\nodejs\\\\node.exe\", \"$env:USERPROFILE\\\\miniforge3\\\\Scripts\\\\conda.exe\", \"$env:LOCALAPPDATA\\\\miniforge3\\\\Scripts\\\\conda.exe\", \"C:\\\\ProgramData\\\\miniforge3\\\\Scripts\\\\conda.exe\", \"$env:USERPROFILE\\\\AppData\\\\Local\\\\Programs\\\\miniforge3\\\\Scripts\\\\conda.exe\", \"$env:USERPROFILE\\\\anaconda3\\\\Scripts\\\\conda.exe\", \"$env:USERPROFILE\\\\miniconda3\\\\Scripts\\\\conda.exe\"\\); foreach \\($s in $spots\\) { if \\(Test-Path $s\\) { \"FOUND: $s\" } }; \"--- user PATH \\(registry\\):\"; \\(Get-ItemProperty HKCU:\\\\Environment\\).Path -split ';' | Where-Object { $_ -match 'conda|forge|node' }; \"--- system PATH \\(registry\\):\"; \\(Get-ItemProperty 'HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\Session Manager\\\\Environment'\\).Path -split ';' | Where-Object { $_ -match 'conda|forge|node' })",
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\node.exe\" --version; & \"C:\\\\ProgramData\\\\miniforge3\\\\Scripts\\\\conda.exe\" --version)",
+      "Bash(~/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-04-phase0-foundation.md 1)",
+      "Bash(cd /d C:\\\\Users\\\\yashg\\\\OneDrive\\\\Desktop\\\\atom_sim)",
+      "Bash(dir /b /A)"
+    ]
+  }
+}
