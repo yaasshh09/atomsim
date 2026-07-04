@@ -39,17 +39,23 @@ npm install
 | **VS Code** | Recommended editor — <https://code.visualstudio.com/> |
 | **GitHub CLI (`gh`)** | Easier repo publishing, PRs, CI checks from the terminal — <https://cli.github.com/> |
 
-## Status of the current dev machine (checked 2026-07-04)
+## Verify your installs
 
-- ✅ Git 2.54, VS Code, system Python 3.14
-- ❌ **Miniforge — install this**
-- ❌ **Node.js LTS — install this**
-- ⬜ GitHub CLI — optional, install when we publish to GitHub
+Open a fresh terminal after installing and check:
 
-## Phase 0 verification step
+```powershell
+git --version     # any recent version
+conda --version   # from Miniforge (if not on PATH, use the "Miniforge Prompt" from the Start menu)
+node --version    # v20+ LTS
+```
 
-After installing Miniforge, the first project task verifies that `psi4` installs
-cleanly from conda-forge on Windows (`conda install -c conda-forge psi4` inside the
-env). If the Windows build turns out to be broken/unavailable, the spec's fallback
-applies (custom solvers stay primary; Psi4 cross-checks deferred) — see
-`docs/superpowers/specs/2026-07-04-atom-sim-requirements-design.md`, open item 5.
+If `conda` isn't recognized in a normal terminal, that's expected with default
+Miniforge settings — use the **Miniforge Prompt** from the Start menu, or invoke
+it by full path (default all-users install: `C:\ProgramData\miniforge3\condabin\conda.bat`).
+
+## Psi4 on Windows — resolved
+
+The spec's open question (does Psi4 ship native Windows builds?) was answered
+during Phase 0: **yes — Psi4 1.11 on conda-forge, win-64, Python 3.10–3.14.**
+Details in [psi4-windows-status.md](psi4-windows-status.md). Psi4 is deliberately
+NOT part of the current environment; it arrives in the Hartree-Fock phase.
