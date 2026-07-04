@@ -1,7 +1,7 @@
 import pytest
 from scipy.constants import electron_mass, physical_constants, proton_mass
 
-from atomsim.analytic.hydrogen import energy
+from atomsim.analytic.hydrogen import energy, validate_quantum_numbers
 from atomsim.constants import HARTREE_EV
 from atomsim.provenance import Fidelity
 
@@ -47,3 +47,13 @@ def test_provenance_names_its_assumptions():
     joined = " ".join(p.assumptions).lower()
     assert "non-relativistic" in joined
     assert "point nucleus" in joined
+
+
+def test_invalid_l_raises():
+    with pytest.raises(ValueError):
+        validate_quantum_numbers(1, 1)   # l == n
+    with pytest.raises(ValueError):
+        validate_quantum_numbers(2, 2)   # l == n
+    with pytest.raises(ValueError):
+        validate_quantum_numbers(2, -1)  # l < 0
+    validate_quantum_numbers(3, 2)       # valid: must NOT raise

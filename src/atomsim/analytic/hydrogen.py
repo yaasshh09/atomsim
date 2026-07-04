@@ -16,7 +16,7 @@ _EXACT_ASSUMPTIONS = (
 )
 
 
-def validate_quantum_numbers(n: int, l: int = 0) -> None:  # noqa: E741
+def validate_quantum_numbers(n: int, l: int = 0) -> None:
     if n < 1:
         raise ValueError(f"principal quantum number n must be >= 1, got {n}")
     if not 0 <= l < n:

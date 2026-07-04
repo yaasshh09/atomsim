@@ -26,3 +26,4 @@ src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+ignore = ["E741"]  # physics convention: l = orbital angular momentum quantum number
