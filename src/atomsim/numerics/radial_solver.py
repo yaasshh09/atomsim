@@ -35,11 +35,17 @@ def solve_radial(
     n_points: int = 24000,
     n_states: int = 3,
 ) -> RadialSolution:
+    if l < 0:
+        raise ValueError(f"orbital quantum number l must be >= 0, got {l}")
+    if not mu_ratio > 0:
+        raise ValueError(f"reduced-mass ratio must be positive, got {mu_ratio}")
     h = r_max / (n_points + 1)
     r = h * np.arange(1, n_points + 1)
     inv2m = 1.0 / (2.0 * mu_ratio)
 
     v_eff = np.asarray(potential(r), dtype=float) + l * (l + 1) * inv2m / r**2
+    if not np.isfinite(v_eff).all():
+        raise ValueError("potential produced non-finite values on the radial grid")
     diag = 2.0 * inv2m / h**2 + v_eff
     offdiag = np.full(n_points - 1, -inv2m / h**2)
 

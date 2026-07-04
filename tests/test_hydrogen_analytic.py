@@ -108,3 +108,20 @@ def test_scaling_with_z_and_reduced_mass():
     # length scale ~ 1/(Z mu'): heavier reduced mass shrinks the atom
     assert mean_radius(1, 0, Z=2) == pytest.approx(0.75)
     assert mean_radius(1, 0, mu_ratio=2.0) == pytest.approx(0.75)
+
+
+def test_energy_rejects_unphysical_inputs():
+    with pytest.raises(ValueError):
+        energy(1, Z=0)
+    with pytest.raises(ValueError):
+        energy(1, mu_ratio=0.0)
+    with pytest.raises(ValueError):
+        energy(1, mu_ratio=-1.0)
+
+
+def test_wavefunction_helpers_reject_unphysical_inputs():
+    r = np.linspace(1e-6, 10.0, 100)
+    with pytest.raises(ValueError):
+        radial_wavefunction(1, 0, r, Z=0)
+    with pytest.raises(ValueError):
+        mean_radius(1, 0, mu_ratio=-2.0)

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 
 from scipy import constants as _sc
 
+# Real-universe display anchor ONLY: counterfactual universes must derive
+# their own conversion via FundamentalConstants.hartree_energy, never this.
 HARTREE_EV: float = _sc.physical_constants["Hartree energy in eV"][0]
 
 

@@ -108,11 +108,21 @@ def test_convergence_order_harmonic_is_second_order():
 
 
 def test_convergence_order_coulomb_documented():
-    # The r=0 Coulomb cusp can reduce the observed order below 2 — that finding
-    # is recorded in docs/phase0-convergence.md, and the floor asserted here.
+    # u = r*R is smooth at the origin for Coulomb, so O(h^2) is expected; the
+    # >1.3 floor guards against regressions on rougher potentials. Observed
+    # orders are recorded in docs/phase0-convergence.md.
     orders, errs = _observed_order(
         lambda r: -1.0 / r, exact=-0.5, l=0, r_max=60.0, n_list=[3000, 6000, 12000]
     )
     assert errs[-1] < 1e-4  # absolute accuracy still good
     for p in orders:
         assert p > 1.3, orders
+
+
+def test_solver_rejects_unphysical_inputs():
+    with pytest.raises(ValueError):
+        solve_radial(lambda r: -1.0 / r, l=-1, n_points=100)
+    with pytest.raises(ValueError):
+        solve_radial(lambda r: -1.0 / r, mu_ratio=0.0, n_points=100)
+    with pytest.raises(ValueError):
+        solve_radial(lambda r: np.full_like(r, np.nan), n_points=100)

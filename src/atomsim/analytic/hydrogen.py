@@ -28,9 +28,17 @@ def validate_quantum_numbers(n: int, l: int = 0) -> None:
         raise ValueError(f"orbital quantum number l must satisfy 0 <= l < n, got l={l}, n={n}")
 
 
+def _validate_physical(Z: int, mu_ratio: float) -> None:
+    if Z < 1:
+        raise ValueError(f"nuclear charge Z must be >= 1, got {Z}")
+    if not mu_ratio > 0:
+        raise ValueError(f"reduced-mass ratio must be positive, got {mu_ratio}")
+
+
 def energy(n: int, Z: int = 1, mu_ratio: float = 1.0) -> Quantity:
     """Exact bound-state energy E_n = -mu_ratio * Z^2 / (2 n^2), in hartree."""
     validate_quantum_numbers(n)
+    _validate_physical(Z, mu_ratio)
     value = -mu_ratio * Z**2 / (2.0 * n**2)
     return Quantity(
         value=value,
@@ -53,6 +61,7 @@ def radial_wavefunction(
     Reliable for n <= 20 (float64 generalized-Laguerre evaluation).
     """
     validate_quantum_numbers(n, l)
+    _validate_physical(Z, mu_ratio)
     kappa = Z * mu_ratio
     rho = 2.0 * kappa * np.asarray(r, dtype=float) / n
     norm = math.sqrt(
@@ -66,4 +75,5 @@ def radial_wavefunction(
 def mean_radius(n: int, l: int, Z: int = 1, mu_ratio: float = 1.0) -> float:
     """Exact <r> = (3 n^2 - l(l+1)) / (2 Z mu'), in bohr."""
     validate_quantum_numbers(n, l)
+    _validate_physical(Z, mu_ratio)
     return (3.0 * n**2 - l * (l + 1)) / (2.0 * Z * mu_ratio)

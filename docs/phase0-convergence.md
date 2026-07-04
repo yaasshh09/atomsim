@@ -5,7 +5,7 @@
 
 ## 3D harmonic oscillator (l=0, E=1.5)
 
-| N (grid points) | h (bohr) | |E_num - E_exact| (hartree) | observed order |
+| N (grid points) | h (bohr) | \|E_num - E_exact\| (hartree) | observed order |
 |---|---|---|---|
 | 600 | 2.00e-02 | 6.229e-05 | — |
 | 1200 | 9.99e-03 | 1.560e-05 | 2.00 |
@@ -14,7 +14,7 @@
 
 ## Hydrogen 1s (E=-0.5)
 
-| N (grid points) | h (bohr) | |E_num - E_exact| (hartree) | observed order |
+| N (grid points) | h (bohr) | \|E_num - E_exact\| (hartree) | observed order |
 |---|---|---|---|
 | 3000 | 2.00e-02 | 4.996e-05 | — |
 | 6000 | 1.00e-02 | 1.250e-05 | 2.00 |
@@ -23,15 +23,11 @@
 
 ## Hydrogen 2p (E=-0.125)
 
-| N (grid points) | h (bohr) | |E_num - E_exact| (hartree) | observed order |
+| N (grid points) | h (bohr) | \|E_num - E_exact\| (hartree) | observed order |
 |---|---|---|---|
 | 3000 | 3.33e-02 | 2.892e-06 | — |
 | 6000 | 1.67e-02 | 7.232e-07 | 2.00 |
 | 12000 | 8.33e-03 | 1.808e-07 | 2.00 |
 | 24000 | 4.17e-03 | 4.521e-08 | 2.00 |
 
-**Reading the results:** the smooth harmonic potential shows clean O(h^2)
-convergence. The Coulomb cusp at r=0 can reduce the observed order for s
-states — exactly the kind of honest numerical caveat this project exists to
-surface. Every solver energy can carry a grid-halving error estimate via
-`solve_radial_with_error`.
+**Reading the results:** all three cases show clean O(h^2) convergence, including the Coulomb s state. The scheme solves for u = r R(r), which is smooth at the origin for the Coulomb potential, so second order is expected here rather than fortunate; cusp-related order reduction was not observed at these resolutions. Every solver energy can carry a grid-halving error estimate via `solve_radial_with_error`.
