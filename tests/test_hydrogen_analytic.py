@@ -9,7 +9,7 @@ from atomsim.analytic.hydrogen import (
     validate_quantum_numbers,
 )
 from atomsim.constants import HARTREE_EV
-from atomsim.provenance import Fidelity
+from atomsim.provenance import Fidelity, Field
 
 
 def test_hydrogen_ground_state_is_minus_half_hartree():
@@ -72,14 +72,14 @@ def _grid():
 def test_radial_wavefunctions_are_normalized():
     r = _grid()
     for n, l in [(1, 0), (2, 0), (2, 1), (3, 1), (5, 3)]:
-        norm = np.trapezoid(radial_wavefunction(n, l, r) ** 2 * r**2, r)
+        norm = np.trapezoid(radial_wavefunction(n, l, r).values ** 2 * r**2, r)
         assert norm == pytest.approx(1.0, abs=1e-6), (n, l)
 
 
 def test_node_counts_are_n_minus_l_minus_1():
     r = _grid()
     for n, l in [(1, 0), (2, 0), (3, 0), (3, 2), (4, 1)]:
-        R = radial_wavefunction(n, l, r)
+        R = radial_wavefunction(n, l, r).values
         mask = np.abs(R) > 1e-6 * np.abs(R).max()
         signs = np.sign(R[mask])
         nodes = int(np.sum(signs[1:] != signs[:-1]))
@@ -89,25 +89,25 @@ def test_node_counts_are_n_minus_l_minus_1():
 def test_mean_radius_matches_exact_formula_and_integral():
     r = _grid()
     for n, l in [(1, 0), (2, 1), (3, 0)]:
-        R = radial_wavefunction(n, l, r)
+        R = radial_wavefunction(n, l, r).values
         integral = np.trapezoid(R**2 * r**3, r)
-        exact = mean_radius(n, l)
+        exact = mean_radius(n, l).value
         assert integral == pytest.approx(exact, rel=1e-5), (n, l)
-    assert mean_radius(1, 0) == pytest.approx(1.5)  # 1s: <r> = 1.5 bohr
+    assert mean_radius(1, 0).value == pytest.approx(1.5)  # 1s: <r> = 1.5 bohr
 
 
 def test_orthogonality_same_l():
     r = _grid()
     overlap = np.trapezoid(
-        radial_wavefunction(1, 0, r) * radial_wavefunction(2, 0, r) * r**2, r
+        radial_wavefunction(1, 0, r).values * radial_wavefunction(2, 0, r).values * r**2, r
     )
     assert abs(overlap) < 1e-6
 
 
 def test_scaling_with_z_and_reduced_mass():
     # length scale ~ 1/(Z mu'): heavier reduced mass shrinks the atom
-    assert mean_radius(1, 0, Z=2) == pytest.approx(0.75)
-    assert mean_radius(1, 0, mu_ratio=2.0) == pytest.approx(0.75)
+    assert mean_radius(1, 0, Z=2).value == pytest.approx(0.75)
+    assert mean_radius(1, 0, mu_ratio=2.0).value == pytest.approx(0.75)
 
 
 def test_energy_rejects_unphysical_inputs():
@@ -125,3 +125,20 @@ def test_wavefunction_helpers_reject_unphysical_inputs():
         radial_wavefunction(1, 0, r, Z=0)
     with pytest.raises(ValueError):
         mean_radius(1, 0, mu_ratio=-2.0)
+
+
+def test_radial_wavefunction_returns_exact_field():
+    r = np.linspace(1e-6, 20.0, 500)
+    f = radial_wavefunction(2, 1, r)
+    assert isinstance(f, Field)
+    assert f.unit == "bohr^-3/2"
+    assert f.grid_unit == "bohr"
+    assert f.provenance.fidelity is Fidelity.EXACT
+    assert np.array_equal(f.grid, r)
+
+
+def test_mean_radius_returns_exact_quantity():
+    q = mean_radius(2, 1)
+    assert q.unit == "bohr"
+    assert q.provenance.fidelity is Fidelity.EXACT
+    assert "3" in q.provenance.method  # states the closed-form formula

@@ -11,7 +11,7 @@ import math
 import numpy as np
 from scipy.special import eval_genlaguerre
 
-from atomsim.provenance import Fidelity, Provenance, Quantity
+from atomsim.provenance import Fidelity, Field, Provenance, Quantity
 
 _EXACT_ASSUMPTIONS = (
     "non-relativistic Schrodinger equation",
@@ -54,26 +54,49 @@ def energy(n: int, Z: int = 1, mu_ratio: float = 1.0) -> Quantity:
 
 def radial_wavefunction(
     n: int, l: int, r: np.ndarray, Z: int = 1, mu_ratio: float = 1.0
-) -> np.ndarray:
+) -> Field:
     """Normalized radial wavefunction R_nl(r) in atomic units (r in bohr).
 
     R_nl = N * exp(-rho/2) * rho^l * L_{n-l-1}^{2l+1}(rho),  rho = 2 Z mu' r / n.
-    Reliable for n <= 20 (float64 generalized-Laguerre evaluation).
     """
     validate_quantum_numbers(n, l)
     _validate_physical(Z, mu_ratio)
     kappa = Z * mu_ratio
-    rho = 2.0 * kappa * np.asarray(r, dtype=float) / n
+    grid = np.asarray(r, dtype=float)
+    rho = 2.0 * kappa * grid / n
     norm = math.sqrt(
         (2.0 * kappa / n) ** 3
         * math.factorial(n - l - 1)
         / (2.0 * n * math.factorial(n + l))
     )
-    return norm * np.exp(-rho / 2.0) * rho**l * eval_genlaguerre(n - l - 1, 2 * l + 1, rho)
+    values = norm * np.exp(-rho / 2.0) * rho**l * eval_genlaguerre(n - l - 1, 2 * l + 1, rho)
+    return Field(
+        values=values,
+        grid=grid,
+        unit="bohr^-3/2",
+        grid_unit="bohr",
+        label=f"R_{n},{l} (Z={Z}, mu/m_e={mu_ratio:g})",
+        provenance=Provenance(
+            fidelity=Fidelity.EXACT,
+            method="closed-form R_nl (normalized generalized-Laguerre form)",
+            assumptions=_EXACT_ASSUMPTIONS
+            + ("float64 Laguerre evaluation reliable for n <= 20",),
+        ),
+    )
 
 
-def mean_radius(n: int, l: int, Z: int = 1, mu_ratio: float = 1.0) -> float:
+def mean_radius(n: int, l: int, Z: int = 1, mu_ratio: float = 1.0) -> Quantity:
     """Exact <r> = (3 n^2 - l(l+1)) / (2 Z mu'), in bohr."""
     validate_quantum_numbers(n, l)
     _validate_physical(Z, mu_ratio)
-    return (3.0 * n**2 - l * (l + 1)) / (2.0 * Z * mu_ratio)
+    value = (3.0 * n**2 - l * (l + 1)) / (2.0 * Z * mu_ratio)
+    return Quantity(
+        value=value,
+        unit="bohr",
+        label=f"<r>_{n},{l} (Z={Z}, mu/m_e={mu_ratio:g})",
+        provenance=Provenance(
+            fidelity=Fidelity.EXACT,
+            method="closed-form <r> = (3 n^2 - l(l+1)) / (2 Z mu')",
+            assumptions=_EXACT_ASSUMPTIONS,
+        ),
+    )

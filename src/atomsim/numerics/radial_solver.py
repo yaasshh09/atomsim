@@ -25,6 +25,7 @@ class RadialSolution:
     energies: tuple[Quantity, ...]
     l: int
     mu_ratio: float
+    provenance: Provenance
 
 
 def solve_radial(
@@ -82,7 +83,9 @@ def solve_radial(
         )
         for k, e in enumerate(eigvals)
     )
-    return RadialSolution(r=r, u=u, energies=energies, l=l, mu_ratio=mu_ratio)
+    return RadialSolution(
+        r=r, u=u, energies=energies, l=l, mu_ratio=mu_ratio, provenance=provenance
+    )
 
 
 def solve_radial_with_error(

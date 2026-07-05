@@ -75,7 +75,7 @@ def test_l1_states_match_analytic():
 
 def test_numerical_1s_wavefunction_overlaps_analytic():
     sol = solve_radial(_coulomb(1), l=0, n_states=1)
-    u_exact = sol.r * radial_wavefunction(1, 0, sol.r)
+    u_exact = sol.r * radial_wavefunction(1, 0, sol.r).values
     overlap = np.trapezoid(sol.u[0] * u_exact, sol.r)
     assert overlap > 0.99999
 
@@ -117,6 +117,12 @@ def test_convergence_order_coulomb_documented():
     assert errs[-1] < 1e-4  # absolute accuracy still good
     for p in orders:
         assert p > 1.3, orders
+
+
+def test_solution_carries_its_own_provenance():
+    sol = solve_radial(lambda r: 0.5 * r**2, l=0, r_max=12.0, n_points=1200, n_states=1)
+    assert sol.provenance.fidelity is Fidelity.NUMERICAL
+    assert "finite-difference" in sol.provenance.method
 
 
 def test_solver_rejects_unphysical_inputs():
