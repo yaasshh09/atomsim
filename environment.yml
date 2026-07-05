@@ -5,6 +5,10 @@ dependencies:
   - python=3.12
   - numpy>=2.0
   - scipy>=1.13
+  - fastapi>=0.115
+  - uvicorn>=0.30
+  - httpx>=0.27
+  - nodejs=22
   - pytest>=8
   - pytest-cov
   - ruff
