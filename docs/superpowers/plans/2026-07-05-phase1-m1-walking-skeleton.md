@@ -77,7 +77,7 @@ atom_sim/
 - Consumes: existing `Provenance`, `Fidelity`.
 - Produces: `Field(values: np.ndarray, grid: np.ndarray, unit: str, grid_unit: str, label: str, provenance: Provenance)` — frozen dataclass; validates `grid` is 1-D and `values.shape[-1] == grid.shape[0]`; coerces both to `np.ndarray`. Tasks 2 and 5 rely on these exact attribute names.
 
-- [ ] **Step 1: Write the failing tests** — in `tests/test_provenance.py`: add `import numpy as np` on its own line directly below the existing `import dataclasses`; change the existing import line to `from atomsim.provenance import Fidelity, Field, Provenance, Quantity`; then append:
+- [x] **Step 1: Write the failing tests** — in `tests/test_provenance.py`: add `import numpy as np` on its own line directly below the existing `import dataclasses`; change the existing import line to `from atomsim.provenance import Fidelity, Field, Provenance, Quantity`; then append:
 
 ```python
 def _prov():
@@ -126,12 +126,12 @@ def test_field_rejects_non_1d_grid():
 
 (Adjust the existing top-of-file import to `from atomsim.provenance import Fidelity, Field, Provenance, Quantity` — keep whatever names the file already imports plus `Field`; keep import sorting.)
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_provenance.py -q`
 Expected: FAIL — `ImportError: cannot import name 'Field'`.
 
-- [ ] **Step 3: Implement `Field`** — in `src/atomsim/provenance.py`, add `import numpy as np` below the existing imports, and append:
+- [x] **Step 3: Implement `Field`** — in `src/atomsim/provenance.py`, add `import numpy as np` below the existing imports, and append:
 
 ```python
 @dataclass(frozen=True)
@@ -166,12 +166,12 @@ class Field:
 
 Also update the module docstring's first line to mention the rule covers scalars (`Quantity`) and arrays (`Field`).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_provenance.py -q`
 Expected: PASS (all, including pre-existing tests).
 
-- [ ] **Step 5: Lint and commit**
+- [x] **Step 5: Lint and commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -195,7 +195,7 @@ git commit -m "feat: Field type - array-valued quantities with provenance"
   - `mean_radius(n, l, Z=1, mu_ratio=1.0) -> Quantity` — `.value` in `unit="bohr"`, EXACT provenance.
   - `RadialSolution` gains field `provenance: Provenance` (NUMERICAL, same method text as its energies).
 
-- [ ] **Step 1: Update the tests to the new boundary types**
+- [x] **Step 1: Update the tests to the new boundary types**
 
 In `tests/test_hydrogen_analytic.py`:
 - Add `Field` to the provenance import: `from atomsim.provenance import Fidelity, Field`.
@@ -235,12 +235,12 @@ def test_solution_carries_its_own_provenance():
     assert "finite-difference" in sol.provenance.method
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_hydrogen_analytic.py tests/test_radial_solver.py -q`
 Expected: FAIL — `AttributeError: 'numpy.ndarray' object has no attribute 'values'` (and no `provenance` on `RadialSolution`).
 
-- [ ] **Step 3: Implement the migration**
+- [x] **Step 3: Implement the migration**
 
 `src/atomsim/analytic/hydrogen.py` — change the import to `from atomsim.provenance import Fidelity, Field, Provenance, Quantity`; replace the two functions:
 
@@ -297,12 +297,12 @@ def mean_radius(n: int, l: int, Z: int = 1, mu_ratio: float = 1.0) -> Quantity:
 
 `src/atomsim/numerics/radial_solver.py` — add `provenance: Provenance` as the last field of `RadialSolution`, and in `solve_radial` return `RadialSolution(r=r, u=u, energies=energies, l=l, mu_ratio=mu_ratio, provenance=provenance)` (the `provenance` object already exists in the function). `solve_radial_with_error` needs no change (`dataclasses.replace(fine, energies=energies)` preserves the new field).
 
-- [ ] **Step 4: Run the full suite**
+- [x] **Step 4: Run the full suite**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest -q`
 Expected: PASS — all tests (39 pre-existing, updated in place, plus 3 new).
 
-- [ ] **Step 5: Lint and commit**
+- [x] **Step 5: Lint and commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -321,7 +321,7 @@ git commit -m "feat: complete provenance boundary - Field wavefunctions, Quantit
 - Consumes: nothing.
 - Produces: env `atomsim` gains `fastapi`, `uvicorn`, `httpx`, `nodejs` 22 (so `npm` exists inside the env); pyproject uses PEP 639 license; CODATA test survives scipy bumps.
 
-- [ ] **Step 1: pyproject.toml changes**
+- [x] **Step 1: pyproject.toml changes**
 
 Replace `requires = ["setuptools>=68"]` with `requires = ["setuptools>=77"]` (PEP 639 support). Replace `license = { text = "MIT" }` with `license = "MIT"`. Replace the dependency lines:
 
@@ -332,7 +332,7 @@ dependencies = ["numpy>=2.0", "scipy>=1.13", "fastapi>=0.115", "uvicorn>=0.30"]
 dev = ["pytest>=8", "pytest-cov", "ruff", "httpx>=0.27"]
 ```
 
-- [ ] **Step 2: environment.yml** — replace the dependencies block:
+- [x] **Step 2: environment.yml** — replace the dependencies block:
 
 ```yaml
 name: atomsim
@@ -354,7 +354,7 @@ dependencies:
       - -e .[dev]
 ```
 
-- [ ] **Step 3: Deferred minor — CODATA tolerance** in `tests/test_constants.py`:
+- [x] **Step 3: Deferred minor — CODATA tolerance** in `tests/test_constants.py`:
 
 ```python
 def test_hartree_ev_matches_codata():
@@ -363,7 +363,7 @@ def test_hartree_ev_matches_codata():
     assert abs(HARTREE_EV - 27.211386) < 1e-6
 ```
 
-- [ ] **Step 4: Update the conda env and verify**
+- [x] **Step 4: Update the conda env and verify**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" env update -n atomsim -f environment.yml
@@ -374,7 +374,7 @@ def test_hartree_ev_matches_codata():
 
 Expected: `py deps ok`; an npm version ≥ 10; full test suite PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add pyproject.toml environment.yml tests/test_constants.py
@@ -395,7 +395,7 @@ git commit -m "chore: fastapi/uvicorn/httpx/nodejs deps, PEP 639 license, CODATA
   - `SampleCloud` frozen dataclass: `positions: np.ndarray` (shape `(count, 3)`, float32, bohr), `n: int`, `l: int`, `m: int`, `Z: int`, `mu_ratio: float`, `provenance: Provenance`.
   - `sample_density(n, l, m, count, Z=1, mu_ratio=1.0, seed=0, progress=None, n_chunks=10) -> SampleCloud` — `progress` is an optional `Callable[[float], None]` called after each chunk with the completed fraction (last call = 1.0).
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_sampling.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_sampling.py`:
 
 ```python
 import numpy as np
@@ -485,12 +485,12 @@ def test_rejects_invalid_quantum_numbers():
         sample_density(1, 0, 0, count=0)     # count must be positive
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_sampling.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'atomsim.sampling'`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/sampling.py`:
+- [x] **Step 3: Implement** — `src/atomsim/sampling.py`:
 
 ```python
 """Monte-Carlo sampling of |psi_nlm|^2 — sampling IS physics and carries provenance.
@@ -611,12 +611,12 @@ def sample_density(
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_sampling.py -q`
 Expected: PASS (11 tests; the 100k-sample tests take ~1 s total).
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -640,7 +640,7 @@ git commit -m "feat: Monte-Carlo |psi|^2 sampler with inverse-CDF method and pro
   - `QuantityModel(value: float, unit: str, label: str, provenance: ProvenanceModel)` with `from_quantity(q)`.
   - `FieldModel(values: list[float], grid: list[float], unit: str, grid_unit: str, label: str, provenance: ProvenanceModel)` with `from_field(f)` (1-D fields only; raises `ValueError` for stacked values — M3 extends).
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_schemas.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_schemas.py`:
 
 ```python
 import json
@@ -701,12 +701,12 @@ def test_every_fidelity_value_is_representable():
         assert ProvenanceModel.from_provenance(p).fidelity == fid.value
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_schemas.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'atomsim.server'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `src/atomsim/server/__init__.py`:
 
@@ -790,12 +790,12 @@ class FieldModel(BaseModel):
         )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_schemas.py -q`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Lint and commit**
+- [x] **Step 5: Lint and commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -818,7 +818,7 @@ git commit -m "feat: canonical JSON schemas for Provenance, Quantity, Field"
   - `Job` dataclass: `id: str`, `status: JobStatus`, `progress: float`, `result: Any`, `error: str | None`.
   - `JobStore` with `create() -> Job`, `get(job_id: str) -> Job | None`, `run(job_id: str, fn: Callable[[Callable[[float], None]], Any]) -> None` (synchronous; the caller decides the thread; `fn` receives a progress callback and returns the result).
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_jobs.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_jobs.py`:
 
 ```python
 import pytest
@@ -884,12 +884,12 @@ def test_run_unknown_job_raises():
         store.run("nope", lambda progress: None)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_jobs.py -q`
 Expected: FAIL — `ModuleNotFoundError`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/server/jobs.py`:
+- [x] **Step 3: Implement** — `src/atomsim/server/jobs.py`:
 
 ```python
 """Minimal in-memory async-job pattern: create -> run (in any thread) -> poll/stream.
@@ -957,12 +957,12 @@ class JobStore:
             job.status = JobStatus.DONE
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_jobs.py -q`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Lint and commit**
+- [x] **Step 5: Lint and commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -991,7 +991,7 @@ git commit -m "feat: in-memory job store with progress reporting"
   - `WS /ws/jobs/{job_id}` → JSON messages `{status, progress, error}` every 0.1 s until terminal, then closes.
   - Static mount of `web/dist` at `/` when that directory exists (repo root resolved as `parents[3]` of `app.py` — valid for the editable-install-from-clone delivery model).
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_server.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_server.py`:
 
 ```python
 import time
@@ -1123,12 +1123,12 @@ def test_job_error_surfaces_via_status(client):
     assert body["status"] == JobStatus.ERROR.value
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_server.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'atomsim.server.app'`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/server/app.py`:
+- [x] **Step 3: Implement** — `src/atomsim/server/app.py`:
 
 ```python
 """The atomsim local server: honest JSON + binary boundaries for the browser app."""
@@ -1313,12 +1313,12 @@ def create_app() -> FastAPI:
     return app
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_server.py -q`
 Expected: PASS (9 tests). If `test_websocket_streams_progress_to_done` flakes because the job finishes before the first WS frame: it still receives one terminal `done` frame — the assertion holds; no retry logic needed.
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -1340,7 +1340,7 @@ git commit -m "feat: FastAPI server - state endpoint, sample jobs, WS progress, 
 - Consumes: `create_app` (Task 7).
 - Produces: console command `atomsim serve [--port 8000] [--no-browser]`; `atomsim.cli.main(argv)` entry; `build_parser()`.
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_cli.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_cli.py`:
 
 ```python
 import atomsim.cli as cli
@@ -1377,12 +1377,12 @@ def test_no_browser_flag(monkeypatch):
     assert opened == []
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `& "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_cli.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'atomsim.cli'`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/cli.py`:
+- [x] **Step 3: Implement** — `src/atomsim/cli.py`:
 
 ```python
 """Command-line entry point: `atomsim serve` launches the local app."""
@@ -1425,7 +1425,7 @@ In `pyproject.toml`, add after the `[project.optional-dependencies]` table:
 atomsim = "atomsim.cli:main"
 ```
 
-- [ ] **Step 4: Reinstall (registers the script), run tests**
+- [x] **Step 4: Reinstall (registers the script), run tests**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pip install -e ".[dev]"
@@ -1435,7 +1435,7 @@ atomsim = "atomsim.cli:main"
 
 Expected: 3 tests PASS; help text shows `--port` and `--no-browser`.
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -1456,7 +1456,7 @@ git commit -m "feat: atomsim serve command"
 - Consumes: nodejs/npm from the conda env (Task 3).
 - Produces: `npm run dev` serves the app on :5173 with `/api` + `/ws` proxied to :8000; `npm run build` emits `web/dist/`; `npm test` runs vitest. Tasks 10–12 build on this scaffold.
 
-- [ ] **Step 1: OneDrive-safety first** — `scripts/setup_web_node_modules.ps1`:
+- [x] **Step 1: OneDrive-safety first** — `scripts/setup_web_node_modules.ps1`:
 
 ```powershell
 # node_modules must NOT live under OneDrive (sync churn + file-lock errors).
@@ -1479,7 +1479,7 @@ web/node_modules/
 web/dist/
 ```
 
-- [ ] **Step 2: Write the scaffold files** (hand-written, not `create vite` — deterministic and reviewable):
+- [x] **Step 2: Write the scaffold files** (hand-written, not `create vite` — deterministic and reviewable):
 
 `web/package.json`:
 
@@ -1608,7 +1608,7 @@ body {
 }
 ```
 
-- [ ] **Step 3: Junction, install, build**
+- [x] **Step 3: Junction, install, build**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim
@@ -1620,7 +1620,7 @@ cd web
 
 Expected: junction message; `npm install` completes (writes `web/package-lock.json`); build prints `✓ built in …` and creates `web/dist/index.html`. Verify the junction: `Get-Item web\node_modules | Select-Object LinkType` → `Junction`.
 
-- [ ] **Step 4: Commit** (from repo root; package-lock.json IS committed, node_modules/dist are ignored)
+- [x] **Step 4: Commit** (from repo root; package-lock.json IS committed, node_modules/dist are ignored)
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim
@@ -1640,7 +1640,7 @@ git commit -m "feat: web scaffold - Vite + React + TS with OneDrive-safe node_mo
 - Consumes: server JSON shapes (Task 7) — mirrored, never invented.
 - Produces (Task 11 relies on): `types.ts` interfaces; `client.getState(n,l,m)`, `client.createSampleJob(n,l,m,count,seed?)`, `client.watchJob(jobId, onProgress)`, `client.getSampleMeta(jobId)`, `client.getSampleData(jobId)`, `client.decodePositions(buffer)`; `quantum.isValidState(n,l,m)`, `quantum.stateLabel(n,l,m)`, `quantum.clampState(n,l,m)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `web/src/lib/quantum.test.ts`:
 
@@ -1703,7 +1703,7 @@ describe("decodePositions", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim\web
@@ -1712,7 +1712,7 @@ cd C:\Users\yashg\OneDrive\Desktop\atom_sim\web
 
 Expected: FAIL — cannot resolve `./quantum` / `./client`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/api/types.ts`:
 
@@ -1875,7 +1875,7 @@ export function clampState(n: number, l: number, m: number): { n: number; l: num
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim npm test
@@ -1883,7 +1883,7 @@ export function clampState(n: number, l: number, m: number): { n: number; l: num
 
 Expected: PASS (8 tests, 2 files).
 
-- [ ] **Step 5: Type-check and commit**
+- [x] **Step 5: Type-check and commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim npm run build
@@ -1904,7 +1904,7 @@ git commit -m "feat: TS API client mirroring canonical JSON, quantum-number logi
 - Consumes: everything from Task 10.
 - Produces: the three-panel app. `useAppStore` shape: `{ n, l, m, count, stateInfo, positions, meta, status, progress, error, setQuantumNumbers, setCount, loadStateInfo, sample }`.
 
-- [ ] **Step 1: Implement the store** — `web/src/state/store.ts`:
+- [x] **Step 1: Implement the store** — `web/src/state/store.ts`:
 
 ```ts
 import { create } from "zustand";
@@ -1966,7 +1966,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 }));
 ```
 
-- [ ] **Step 2: Badge with mini-inspector** — `web/src/components/Badge.tsx`:
+- [x] **Step 2: Badge with mini-inspector** — `web/src/components/Badge.tsx`:
 
 ```tsx
 import { useState } from "react";
@@ -2022,7 +2022,7 @@ export function Badge({ provenance }: { provenance: Provenance }) {
 }
 ```
 
-- [ ] **Step 3: Info panel** — `web/src/components/InfoPanel.tsx`:
+- [x] **Step 3: Info panel** — `web/src/components/InfoPanel.tsx`:
 
 ```tsx
 import { useEffect } from "react";
@@ -2069,7 +2069,7 @@ export function InfoPanel() {
 }
 ```
 
-- [ ] **Step 4: Controls** — `web/src/components/Controls.tsx`:
+- [x] **Step 4: Controls** — `web/src/components/Controls.tsx`:
 
 ```tsx
 import { useAppStore } from "../state/store";
@@ -2140,7 +2140,7 @@ export function Controls() {
 }
 ```
 
-- [ ] **Step 5: Point cloud** — `web/src/components/PointCloud.tsx`:
+- [x] **Step 5: Point cloud** — `web/src/components/PointCloud.tsx`:
 
 ```tsx
 import { useMemo } from "react";
@@ -2175,7 +2175,7 @@ export function PointCloud({ positions, pointSize }: Props) {
 }
 ```
 
-- [ ] **Step 6: App + styles** — replace `web/src/App.tsx`:
+- [x] **Step 6: App + styles** — replace `web/src/App.tsx`:
 
 ```tsx
 import { OrbitControls } from "@react-three/drei";
@@ -2380,7 +2380,7 @@ button.primary:disabled {
 }
 ```
 
-- [ ] **Step 7: Verify — tests, types, live app**
+- [x] **Step 7: Verify — tests, types, live app**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim\web
@@ -2409,7 +2409,7 @@ Open http://localhost:5173 and verify the checklist:
 4. Set n=3, l=2, m=0 → Sample → torus + two lobes.
 5. Sampled-points readout shows a blue NUMERICAL badge whose method names inverse-CDF and the seed.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim
@@ -2424,7 +2424,7 @@ git commit -m "feat: walking-skeleton UI - three-panel layout, badges, 3D point 
 **Files:**
 - Modify: none expected (`app.py` already mounts `web/dist` when present) — this task VERIFIES the integration and fixes anything found.
 
-- [ ] **Step 1: Fresh build and serve**
+- [x] **Step 1: Fresh build and serve**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim\web
@@ -2433,7 +2433,7 @@ cd C:\Users\yashg\OneDrive\Desktop\atom_sim
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim atomsim serve --no-browser
 ```
 
-- [ ] **Step 2: Verify from a second terminal**
+- [x] **Step 2: Verify from a second terminal**
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/api/health
@@ -2442,7 +2442,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 
 Expected: `status ok` + version; `200` (index.html served). Then open http://127.0.0.1:8000 in a browser and re-run the Task 11 checklist items 1–2 (this time with NO vite dev server running — the built app must work standalone).
 
-- [ ] **Step 3: Full-stack test sweep**
+- [x] **Step 3: Full-stack test sweep**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim
@@ -2460,7 +2460,7 @@ Expected: all green. Commit only if fixes were needed (message: `fix: <what was 
 **Files:**
 - Modify: `.github/workflows/ci.yml` (full replacement)
 
-- [ ] **Step 1: Replace the workflow** (SHAs verified 2026-07-05 via `git ls-remote`):
+- [x] **Step 1: Replace the workflow** (SHAs verified 2026-07-05 via `git ls-remote`):
 
 ```yaml
 name: CI
@@ -2504,7 +2504,7 @@ jobs:
         run: npm run build
 ```
 
-- [ ] **Step 2: Commit and push**
+- [x] **Step 2: Commit and push**
 
 ```powershell
 git add .github/workflows/ci.yml
@@ -2512,7 +2512,7 @@ git commit -m "ci: SHA-pinned actions, add web job (npm ci + vitest + build)"
 git push
 ```
 
-- [ ] **Step 3: Verify CI green**
+- [x] **Step 3: Verify CI green**
 
 ```powershell
 Start-Sleep -Seconds 90
@@ -2528,7 +2528,7 @@ Expected: `status completed`, `conclusion success` (re-poll if still `in_progres
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Add/replace the Quickstart section** — after the badges/intro, insert (adapting to the README's existing structure; keep existing content that still holds):
+- [x] **Step 1: Add/replace the Quickstart section** — after the badges/intro, insert (adapting to the README's existing structure; keep existing content that still holds):
 
 ```markdown
 ## Quickstart (Windows)
@@ -2554,7 +2554,7 @@ Monte-Carlo point cloud of |ψ|² — every displayed quantity carries a provena
 
 (Remove the zero-width characters around the fences — they mark the nested block for this plan only.)
 
-- [ ] **Step 2: Final verification sweep**
+- [x] **Step 2: Final verification sweep**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim
@@ -2566,7 +2566,7 @@ cd web
 
 Expected: everything green.
 
-- [ ] **Step 3: Commit and push**
+- [x] **Step 3: Commit and push**
 
 ```powershell
 cd C:\Users\yashg\OneDrive\Desktop\atom_sim
