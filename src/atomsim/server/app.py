@@ -3,7 +3,9 @@
 import asyncio
 import dataclasses
 from pathlib import Path
+from typing import Literal
 
+import numpy as np
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -12,24 +14,70 @@ from pydantic import BaseModel
 from pydantic import Field as PydanticField
 
 import atomsim
-from atomsim.analytic.hydrogen import energy, mean_radius, validate_quantum_numbers
+from atomsim.analytic.fine_structure import fine_structure_shift, level_energy
+from atomsim.analytic.hydrogen import (
+    energy,
+    mean_radius,
+    radial_wavefunction,
+    validate_quantum_numbers,
+)
 from atomsim.constants import HARTREE_EV
-from atomsim.provenance import Quantity
+from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
 from atomsim.server.jobs import Job, JobStatus, JobStore
-from atomsim.server.schemas import ProvenanceModel, QuantityModel
+from atomsim.server.schemas import (
+    ComparisonModel,
+    FieldModel,
+    LineModel,
+    ProvenanceModel,
+    QuantityModel,
+    SystemModel,
+)
+from atomsim.spectra import compare_lines, load_reference, transition_lines
+from atomsim.systems import get_system, list_systems
 
 WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
 _DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+
+class LevelModel(BaseModel):
+    j: float
+    energy: QuantityModel
+    energy_ev: QuantityModel
+    shift: QuantityModel
 
 
 class StateResponse(BaseModel):
     n: int
     l: int
     m: int
+    system: SystemModel
     energy: QuantityModel
     energy_ev: QuantityModel
     mean_radius: QuantityModel
+    levels: list[LevelModel]
+
+
+class SystemsResponse(BaseModel):
+    systems: list[SystemModel]
+
+
+class RadialResponse(BaseModel):
+    n: int
+    l: int
+    system: SystemModel
+    r_wavefunction: FieldModel
+    radial_probability: FieldModel
+
+
+class SpectrumResponse(BaseModel):
+    system: SystemModel
+    n_max: int
+    fine_structure: bool
+    lines: list[LineModel]
+    comparison: list[ComparisonModel] | None
+    reference_citation: str | None
+    tolerance_relative: float | None
 
 
 class SampleRequest(BaseModel):
@@ -38,6 +86,8 @@ class SampleRequest(BaseModel):
     m: int
     count: int = PydanticField(default=100_000, ge=1_000, le=1_000_000)
     seed: int = 0
+    basis: Literal["complex", "real"] = "complex"
+    system: str = "h"
 
 
 class JobModel(BaseModel):
@@ -55,6 +105,8 @@ class SampleMetaModel(BaseModel):
     n: int
     l: int
     m: int
+    basis: str
+    system: str
     provenance: ProvenanceModel
 
 
@@ -96,35 +148,123 @@ def create_app() -> FastAPI:
     app = FastAPI(title="atomsim", version=atomsim.__version__)
     jobs = JobStore()
     app.state.jobs = jobs
+    app.state.job_systems = {}
     app.add_middleware(
         CORSMiddleware, allow_origins=_DEV_ORIGINS, allow_methods=["*"], allow_headers=["*"]
     )
+
+    def _resolve_system(key: str):
+        try:
+            return get_system(key)
+        except KeyError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "version": atomsim.__version__}
 
+    @app.get("/api/systems", response_model=SystemsResponse)
+    def systems() -> SystemsResponse:
+        return SystemsResponse(systems=[SystemModel.from_system(s) for s in list_systems()])
+
     @app.get("/api/state/{n}/{l}/{m}", response_model=StateResponse)
-    def state(n: int, l: int, m: int) -> StateResponse:
+    def state(n: int, l: int, m: int, system: str = "h",
+              fine_structure: bool = False) -> StateResponse:
         _validate_state(n, l, m)
-        e = energy(n)
+        sys_ = _resolve_system(system)
+        mu = sys_.mu_ratio.value
+        e = energy(n, Z=sys_.Z, mu_ratio=mu)
+        levels: list[LevelModel] = []
+        if fine_structure:
+            js = [l - 0.5, l + 0.5] if l > 0 else [0.5]
+            for j in js:
+                le = level_energy(n, l, j, Z=sys_.Z, mu_ratio=mu, m_over_M=sys_.m_over_M)
+                sh = fine_structure_shift(
+                    n, l, j, Z=sys_.Z, mu_ratio=mu, m_over_M=sys_.m_over_M
+                )
+                levels.append(
+                    LevelModel(
+                        j=j,
+                        energy=QuantityModel.from_quantity(le),
+                        energy_ev=QuantityModel.from_quantity(_to_ev(le)),
+                        shift=QuantityModel.from_quantity(sh),
+                    )
+                )
         return StateResponse(
-            n=n,
-            l=l,
-            m=m,
+            n=n, l=l, m=m,
+            system=SystemModel.from_system(sys_),
             energy=QuantityModel.from_quantity(e),
             energy_ev=QuantityModel.from_quantity(_to_ev(e)),
-            mean_radius=QuantityModel.from_quantity(mean_radius(n, l)),
+            mean_radius=QuantityModel.from_quantity(
+                mean_radius(n, l, Z=sys_.Z, mu_ratio=mu)
+            ),
+            levels=levels,
+        )
+
+    @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)
+    def radial(n: int, l: int, system: str = "h", points: int = 400) -> RadialResponse:
+        _validate_state(n, l, 0)
+        if not 50 <= points <= 2000:
+            raise HTTPException(status_code=422, detail="points must be in [50, 2000]")
+        sys_ = _resolve_system(system)
+        mu = sys_.mu_ratio.value
+        r_max = 20.0 * n * n / (sys_.Z * mu)
+        r = np.linspace(0.0, r_max, points)
+        rw = radial_wavefunction(n, l, r, Z=sys_.Z, mu_ratio=mu)
+        p = Field(
+            values=r * r * rw.values**2,
+            grid=r,
+            unit="bohr^-1",
+            grid_unit="bohr",
+            label=f"P_{n},{l}(r) = r^2 R^2",
+            provenance=rw.provenance,
+        )
+        return RadialResponse(
+            n=n, l=l, system=SystemModel.from_system(sys_),
+            r_wavefunction=FieldModel.from_field(rw),
+            radial_probability=FieldModel.from_field(p),
+        )
+
+    @app.get("/api/spectrum", response_model=SpectrumResponse)
+    def spectrum(system: str = "h", n_max: int = 6,
+                 fine_structure: bool = False) -> SpectrumResponse:
+        if not 2 <= n_max <= 10:
+            raise HTTPException(status_code=422, detail="n_max must be in [2, 10]")
+        sys_ = _resolve_system(system)
+        lines = transition_lines(sys_, n_max=n_max, fine_structure=fine_structure)
+        reference = load_reference(sys_.key)
+        comparison = None
+        citation = None
+        tol = None
+        if reference is not None:
+            tol = 1e-5 if fine_structure else 3e-5
+            comparison = [
+                ComparisonModel.from_comparison(c)
+                for c in compare_lines(lines, reference, tolerance_relative=tol)
+            ]
+            citation = reference.citation
+        return SpectrumResponse(
+            system=SystemModel.from_system(sys_),
+            n_max=n_max,
+            fine_structure=fine_structure,
+            lines=[LineModel.from_line(ln) for ln in lines.lines],
+            comparison=comparison,
+            reference_citation=citation,
+            tolerance_relative=tol,
         )
 
     @app.post("/api/jobs/sample", response_model=JobModel)
     async def create_sample_job(req: SampleRequest) -> JobModel:
         _validate_state(req.n, req.l, req.m)
+        sys_ = _resolve_system(req.system)
         job = jobs.create()
+        app.state.job_systems[job.id] = req.system
 
         def work(progress):
             return sample_density(
-                req.n, req.l, req.m, req.count, seed=req.seed, progress=progress
+                req.n, req.l, req.m, req.count,
+                Z=sys_.Z, mu_ratio=sys_.mu_ratio.value,
+                seed=req.seed, progress=progress, basis=req.basis,
             )
 
         loop = asyncio.get_running_loop()
@@ -149,6 +289,8 @@ def create_app() -> FastAPI:
             n=cloud.n,
             l=cloud.l,
             m=cloud.m,
+            basis=cloud.basis,
+            system=app.state.job_systems.get(job_id, "h"),
             provenance=ProvenanceModel.from_provenance(cloud.provenance),
         )
 
