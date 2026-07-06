@@ -1,9 +1,9 @@
 """Monte-Carlo sampling of |psi_nlm|^2 — sampling IS physics and carries provenance.
 
-Factorized inverse-CDF sampling in the complex spherical-harmonic basis:
-r from P(r) = r^2 R_nl^2, cos(theta) from the normalized |Theta_lm|^2, and
-phi uniform (|Y_lm|^2 is phi-independent for complex Y_lm). Real-orbital
-sampling (phi-dependent) arrives with the M2 angular module.
+Factorized inverse-CDF sampling: r from P(r) = r^2 R_nl^2 and cos(theta) from
+the normalized |Theta_lm|^2 in both bases. phi is uniform in the complex basis
+(|Y_lm|^2 is phi-independent) and follows the analytic cos^2/sin^2(m phi)
+marginal for real orbitals (|S_lm|^2 stays separable in theta and phi).
 """
 
 from collections.abc import Callable
@@ -30,6 +30,7 @@ class SampleCloud:
     m: int
     Z: int
     mu_ratio: float
+    basis: str
     provenance: Provenance
 
 
@@ -53,6 +54,18 @@ def _costheta_inverse_cdf(l: int, m: int):
     return x, cdf
 
 
+def _phi_inverse_cdf(m: int):
+    """Grid phi and CDF of the real-basis phi marginal (cos^2/sin^2 type)."""
+    phi = np.linspace(0.0, 2.0 * np.pi, _X_GRID_POINTS)
+    am = abs(m)
+    if m > 0:
+        cdf = (phi / 2.0 + np.sin(2.0 * am * phi) / (4.0 * am)) / np.pi
+    else:
+        cdf = (phi / 2.0 - np.sin(2.0 * am * phi) / (4.0 * am)) / np.pi
+    cdf /= cdf[-1]
+    return phi, cdf
+
+
 def sample_density(
     n: int,
     l: int,
@@ -63,17 +76,23 @@ def sample_density(
     seed: int = 0,
     progress: Callable[[float], None] | None = None,
     n_chunks: int = 10,
+    basis: str = "complex",
 ) -> SampleCloud:
-    """Draw `count` positions from |psi_nlm|^2 (complex Y_lm basis)."""
+    """Draw `count` positions from |psi_nlm|^2 in the chosen angular basis."""
     validate_quantum_numbers(n, l)
     if abs(m) > l:
         raise ValueError(f"|m| must be <= l, got m={m}, l={l}")
     if count < 1:
         raise ValueError(f"count must be positive, got {count}")
+    if basis not in ("complex", "real"):
+        raise ValueError(f"basis must be 'complex' or 'real', got {basis!r}")
 
     rng = np.random.default_rng(seed)
     r_grid, r_cdf, r_max = _radial_inverse_cdf(n, l, Z, mu_ratio)
     x_grid, x_cdf = _costheta_inverse_cdf(l, m)
+    phi_sampler = None
+    if basis == "real" and m != 0:
+        phi_sampler = _phi_inverse_cdf(m)
 
     sizes = np.full(n_chunks, count // n_chunks)
     sizes[: count % n_chunks] += 1
@@ -87,7 +106,10 @@ def sample_density(
         r = np.interp(rng.random(size), r_cdf, r_grid)
         cos_t = np.interp(rng.random(size), x_cdf, x_grid)
         sin_t = np.sqrt(np.clip(1.0 - cos_t**2, 0.0, 1.0))
-        phi = rng.uniform(0.0, 2.0 * np.pi, size)
+        if phi_sampler is None:
+            phi = rng.uniform(0.0, 2.0 * np.pi, size)
+        else:
+            phi = np.interp(rng.random(size), phi_sampler[1], phi_sampler[0])
         xyz = np.stack(
             [r * sin_t * np.cos(phi), r * sin_t * np.sin(phi), r * cos_t], axis=1
         )
@@ -97,20 +119,26 @@ def sample_density(
             progress(done / count)
 
     positions = np.concatenate(chunks)
+    phi_desc = (
+        "phi uniform (|Y_lm|^2 is phi-independent)"
+        if phi_sampler is None
+        else "phi from analytic real-basis marginal (cos^2/sin^2 m phi)"
+    )
     provenance = Provenance(
         fidelity=Fidelity.NUMERICAL,
         method=(
-            "factorized inverse-CDF Monte-Carlo of |psi_nlm|^2: "
+            f"factorized inverse-CDF Monte-Carlo of |psi_nlm|^2 ({basis} basis): "
             f"r from P(r)=r^2 R^2 (grid N={_R_GRID_POINTS}, r_max={r_max:g} bohr), "
-            f"cos(theta) from |Theta_lm|^2 (grid N={_X_GRID_POINTS}), phi uniform"
+            f"cos(theta) from |Theta_lm|^2 (grid N={_X_GRID_POINTS}), {phi_desc}"
         ),
         assumptions=(
-            "complex spherical-harmonic basis (|Y_lm|^2 is phi-independent)",
+            f"angular basis: {basis}",
             f"RNG PCG64 seed={seed}, count={count}",
             "positions in bohr",
         ),
         refinement="increase CDF grid resolution or sample count",
     )
     return SampleCloud(
-        positions=positions, n=n, l=l, m=m, Z=Z, mu_ratio=mu_ratio, provenance=provenance
+        positions=positions, n=n, l=l, m=m, Z=Z, mu_ratio=mu_ratio,
+        basis=basis, provenance=provenance,
     )

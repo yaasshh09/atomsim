@@ -83,3 +83,56 @@ def test_rejects_invalid_quantum_numbers():
         sample_density(2, 1, 2, count=100)   # |m| > l
     with pytest.raises(ValueError):
         sample_density(1, 0, 0, count=0)     # count must be positive
+
+
+def _phis(cloud: SampleCloud) -> np.ndarray:
+    return np.mod(
+        np.arctan2(cloud.positions[:, 1].astype(float), cloud.positions[:, 0].astype(float)),
+        2.0 * np.pi,
+    )
+
+
+def test_real_basis_px_phi_marginal_ks():
+    # p_x: pdf(phi) = cos^2(phi)/pi -> CDF = (phi/2 + sin(2 phi)/4)/pi
+    cloud = sample_density(2, 1, 1, count=COUNT, seed=21, basis="real")
+    ks = kstest(
+        _phis(cloud),
+        lambda p: (p / 2.0 + np.sin(2.0 * p) / 4.0) / np.pi,
+    )
+    assert ks.statistic < 0.01, ks
+
+
+def test_real_basis_px_angular_moment():
+    # density ~ sin^2(theta) cos^2(phi): E[(x/r)^2] = 4/5 * 3/4 = 3/5
+    cloud = sample_density(2, 1, 1, count=COUNT, seed=22, basis="real")
+    r = _radii(cloud)
+    assert ((cloud.positions[:, 0].astype(float) / r) ** 2).mean() == pytest.approx(
+        0.6, abs=0.01
+    )
+
+
+def test_real_basis_dxy_sin_type():
+    # d_xy (m=-2): pdf(phi) ~ sin^2(2 phi) -> E[sin^2(2 phi)] = 3/4
+    cloud = sample_density(3, 2, -2, count=COUNT, seed=23, basis="real")
+    assert (np.sin(2.0 * _phis(cloud)) ** 2).mean() == pytest.approx(0.75, abs=0.01)
+
+
+def test_real_m0_matches_complex_m0_statistically():
+    a = sample_density(2, 1, 0, count=COUNT, seed=24, basis="real")
+    b = sample_density(2, 1, 0, count=COUNT, seed=25, basis="complex")
+    za = (a.positions[:, 2].astype(float) / _radii(a)) ** 2
+    zb = (b.positions[:, 2].astype(float) / _radii(b)) ** 2
+    assert za.mean() == pytest.approx(zb.mean(), abs=0.01)
+
+
+def test_basis_recorded_in_cloud_and_provenance():
+    cloud = sample_density(2, 1, 1, count=2_000, seed=1, basis="real")
+    assert cloud.basis == "real"
+    assert "real" in cloud.provenance.method
+    default = sample_density(2, 1, 1, count=2_000, seed=1)
+    assert default.basis == "complex"
+
+
+def test_rejects_unknown_basis():
+    with pytest.raises(ValueError):
+        sample_density(1, 0, 0, count=1_000, basis="cartoon")
