@@ -14,6 +14,10 @@ from scipy import constants as _sc
 # their own conversion via FundamentalConstants.hartree_energy, never this.
 HARTREE_EV: float = _sc.physical_constants["Hartree energy in eV"][0]
 
+# Real-universe display anchor ONLY (same caveat as HARTREE_EV): counterfactual
+# universes must derive alpha via FundamentalConstants.alpha, never this.
+ALPHA: float = _sc.fine_structure
+
 
 @dataclass(frozen=True)
 class FundamentalConstants:

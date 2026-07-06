@@ -35,3 +35,9 @@ def test_counterfactual_universe_rescales():
     )
     assert abs(weird.alpha / real.alpha - 4.0) < 1e-12
     assert abs(weird.bohr_radius / real.bohr_radius - 0.25) < 1e-12
+
+
+def test_alpha_matches_codata():
+    from atomsim.constants import ALPHA
+
+    assert abs(ALPHA - 0.0072973525643) < 1e-11
