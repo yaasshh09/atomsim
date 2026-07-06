@@ -8,7 +8,9 @@ compare_lines API (vendored reference data, never live queries).
 """
 
 import itertools
+import json
 from dataclasses import dataclass
+from importlib import resources
 
 from scipy import constants as _sc
 
@@ -19,6 +21,10 @@ from atomsim.provenance import Fidelity, Provenance, Quantity
 from atomsim.systems import System
 
 _EV_NM = _sc.h * _sc.c / _sc.e * 1e9  # photon wavelength(nm) = _EV_NM / E(eV)
+
+_REFERENCE_FILES = {"h": "nist_h_i.json", "d": "nist_d_i.json", "he+": "nist_he_ii.json"}
+
+_DEFAULT_TOL = {False: 3e-5, True: 1e-5}  # relative, per fidelity tier
 
 
 @dataclass(frozen=True)
@@ -112,3 +118,87 @@ def transition_lines(
                          "vacuum wavelengths in nm, energies in eV"),
         ),
     )
+
+
+@dataclass(frozen=True)
+class ReferenceLine:
+    wavelength_nm: float
+    uncertainty_nm: float | None
+    label: str
+
+
+@dataclass(frozen=True)
+class ReferenceData:
+    species: str
+    citation: str
+    retrieved: str
+    medium: str
+    lines: tuple[ReferenceLine, ...]
+
+
+@dataclass(frozen=True)
+class LineComparison:
+    line: SpectralLine
+    reference_nm: float
+    reference_uncertainty_nm: float | None
+    delta_nm: float
+    relative_error: float
+    within_tolerance: bool
+
+
+def load_reference(system_key: str) -> ReferenceData | None:
+    """Vendored NIST reference for a preset, or None (no live queries, ever)."""
+    filename = _REFERENCE_FILES.get(system_key)
+    if filename is None:
+        return None
+    ref = resources.files("atomsim.data").joinpath(filename)
+    if not ref.is_file():
+        return None
+    raw = json.loads(ref.read_text(encoding="utf-8"))
+    return ReferenceData(
+        species=raw["species"],
+        citation=raw["citation"],
+        retrieved=raw["retrieved"],
+        medium=raw["medium"],
+        lines=tuple(
+            ReferenceLine(
+                wavelength_nm=ln["wavelength_nm"],
+                uncertainty_nm=ln.get("uncertainty_nm"),
+                label=ln.get("label", ""),
+            )
+            for ln in raw["lines"]
+        ),
+    )
+
+
+def compare_lines(
+    line_list: LineList,
+    reference: ReferenceData,
+    tolerance_relative: float | None = None,
+) -> tuple[LineComparison, ...]:
+    """Match each reference line to the nearest computed line; report residuals."""
+    tol = tolerance_relative if tolerance_relative is not None else _DEFAULT_TOL[
+        line_list.fine_structure
+    ]
+    out: list[LineComparison] = []
+    for ref in reference.lines:
+        if not line_list.lines:
+            break
+        nearest = min(
+            line_list.lines, key=lambda ln: abs(ln.wavelength.value - ref.wavelength_nm)
+        )
+        delta = nearest.wavelength.value - ref.wavelength_nm
+        rel = abs(delta) / ref.wavelength_nm
+        if rel > 0.01:
+            continue  # reference line outside the computed n_max window
+        out.append(
+            LineComparison(
+                line=nearest,
+                reference_nm=ref.wavelength_nm,
+                reference_uncertainty_nm=ref.uncertainty_nm,
+                delta_nm=delta,
+                relative_error=rel,
+                within_tolerance=rel <= tol,
+            )
+        )
+    return tuple(out)

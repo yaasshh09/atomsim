@@ -2,7 +2,14 @@ import numpy as np
 import pytest
 
 from atomsim.provenance import Fidelity
-from atomsim.spectra import LineList, SpectralLine, transition_lines
+from atomsim.spectra import (
+    LineList,
+    ReferenceData,
+    SpectralLine,
+    compare_lines,
+    load_reference,
+    transition_lines,
+)
 from atomsim.systems import get_system
 
 
@@ -83,3 +90,52 @@ def test_every_line_carries_provenance():
 def test_n_max_validation():
     with pytest.raises(ValueError):
         transition_lines(get_system("h"), n_max=1)
+
+
+def test_vendored_h_reference_loads_with_citation():
+    ref = load_reference("h")
+    assert ref is not None
+    assert ref.medium == "vacuum"
+    assert "NIST" in ref.citation
+    assert len(ref.retrieved) == 10  # YYYY-MM-DD
+    assert len(ref.lines) >= 10  # Lyman+Balmer+Paschen up to n=6
+
+
+def test_vendored_data_sanity_gate_against_computed_gross():
+    # transcription-error tripwire: every vendored line within 1e-4 of computed
+    for key in ("h", "d"):
+        ref = load_reference(key)
+        ll = transition_lines(get_system(key), n_max=6)
+        comparisons = compare_lines(ll, ref, tolerance_relative=1e-4)
+        assert len(comparisons) == len(ref.lines)
+        for cmp_ in comparisons:
+            assert cmp_.within_tolerance, (key, cmp_.reference_nm, cmp_.delta_nm)
+
+
+def test_gross_comparison_within_tier_tolerance():
+    ref = load_reference("h")
+    ll = transition_lines(get_system("h"), n_max=6)
+    comparisons = compare_lines(ll, ref)
+    assert len(comparisons) >= 10
+    assert all(c.within_tolerance for c in comparisons), [
+        (c.reference_nm, c.relative_error) for c in comparisons if not c.within_tolerance
+    ]
+
+
+def test_fine_structure_improves_lyman_alpha():
+    ref = load_reference("h")
+    lya_ref = min(ref.lines, key=lambda ln: abs(ln.wavelength_nm - 121.567))
+    gross = transition_lines(get_system("h"), n_max=2)
+    fs = transition_lines(get_system("h"), n_max=2, fine_structure=True)
+    ref_only = ReferenceData(
+        species=ref.species, citation=ref.citation, retrieved=ref.retrieved,
+        medium=ref.medium, lines=(lya_ref,),
+    )
+    d_gross = abs(compare_lines(gross, ref_only, 1.0)[0].delta_nm)
+    d_fs = abs(compare_lines(fs, ref_only, 1.0)[0].delta_nm)
+    assert d_fs <= d_gross * 1.5  # fs must not be wildly worse; usually better
+
+
+def test_unknown_system_reference_is_none():
+    assert load_reference("ps") is None
+    assert load_reference("he+") is None  # He II vendoring skipped in M2 (no ASD aggregates)
