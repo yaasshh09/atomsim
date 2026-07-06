@@ -17,7 +17,7 @@ carries provenance:
 | `COUNTERFACTUAL` | Deliberately altered physics, computed rigorously |
 | `VISUAL LIBERTY` | Purely presentational choice, disclosed |
 
-## Status — Phase 1 walking skeleton
+## Status — Phase 1 M2: engine depth
 
 - **`atomsim serve` opens a browser app**: pick any hydrogen (n, l, m) state,
   press **Sample**, and explore a rotatable 3D Monte-Carlo point cloud of |ψ|² —
@@ -27,6 +27,13 @@ carries provenance:
   a `Field` (array), or a container carrying its own `Provenance`
 - Exact hydrogen-like physics: energies + radial wavefunctions, reduced-mass
   exact (deuterium, muonic hydrogen, positronium, He+, ...)
+- Real AND complex angular bases engine-wide (chemistry p_x/d_xy orbitals vs
+  L_z eigenstates — the basis choice is labeled, never hidden)
+- Perturbative fine structure (spin-orbit + relativistic + Darwin) with honest
+  error scales: alpha^4, nuclear recoil, and electron g-2 all quantified
+- Spectral line lists with selection rules, compared against vendored NIST ASD
+  reference wavelengths in CI (citation + retrieval date in-repo)
+- System presets: H, D, T, muonic hydrogen, positronium, He+, generic Z
 - Numerical radial solver for **arbitrary central potentials** (the engine that
   will power real atoms, screened models, and counterfactual force laws alike),
   validated against closed-form hydrogen and harmonic-oscillator solutions —
@@ -63,9 +70,9 @@ To run the validation suites:
 Full specification: [docs/superpowers/specs/2026-07-04-atom-sim-requirements-design.md](docs/superpowers/specs/2026-07-04-atom-sim-requirements-design.md).
 Phase 1 — "Hydrogen, Honestly" — is underway
 ([design](docs/superpowers/specs/2026-07-05-phase1-hydrogen-honestly-design.md)):
-the walking skeleton above is milestone M1 of 4. Next: engine depth (real
-orbitals, fine structure, spectra vs NIST), UI depth (2D density cross-sections,
-poster mode, state gallery), and polish.
+milestones M1 (walking skeleton) and M2 (engine depth: real orbitals, fine
+structure, spectra vs NIST) of 4 are done. Next: UI depth (2D density
+cross-sections, poster mode, state gallery), then polish.
 
 ## License
 

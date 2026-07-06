@@ -67,7 +67,7 @@ pyproject.toml                     # MODIFY: package-data for data/*.json
   - `real_orbital_label(l, m) -> str` — "p_x", "d_z2", … for l ≤ 3; generic `"g(m=+2, cos)"` style above.
   - `validate_angular(l, m)` — raises `ValueError` unless `l >= 0` and `|m| <= l`.
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_angular.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_angular.py`:
 
 ```python
 import numpy as np
@@ -171,12 +171,12 @@ def test_validation():
         spherical_harmonic(1, 0, np.array([0.1]), np.array([0.1]), basis="chebyshev")
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_angular.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'atomsim.analytic.angular'`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/analytic/angular.py`:
+- [x] **Step 3: Implement** — `src/atomsim/analytic/angular.py`:
 
 ```python
 """Angular structure: complex spherical harmonics Y_lm and real orbitals S_lm.
@@ -286,12 +286,12 @@ def spherical_harmonic(
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_angular.py -q`
 Expected: PASS (9 tests; the orthonormality sweep takes ~2 s).
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -314,7 +314,7 @@ git commit -m "feat: angular module - complex/real spherical harmonics with prov
   - `WavefunctionValues` frozen dataclass: `values: np.ndarray` (complex128 or float64), `positions: np.ndarray` (N,3 bohr), `n, l, m: int`, `Z: int`, `mu_ratio: float`, `basis: str`, `provenance: Provenance`.
   - `evaluate_state(n, l, m, positions, Z=1, mu_ratio=1.0, basis="complex") -> WavefunctionValues` — ψ_nlm = R_nl(r)·Y_lm(θ,φ) at Cartesian points; `unit` implied bohr^-3/2 (documented in label).
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_wavefunction.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_wavefunction.py`:
 
 ```python
 import numpy as np
@@ -394,12 +394,12 @@ def test_rejects_bad_input():
         evaluate_state(1, 0, 0, np.zeros((3,)))  # not (N,3)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_wavefunction.py -q`
 Expected: FAIL — `ModuleNotFoundError`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/analytic/wavefunction.py`:
+- [x] **Step 3: Implement** — `src/atomsim/analytic/wavefunction.py`:
 
 ```python
 """Full hydrogen-like wavefunctions psi_nlm(r) = R_nl(r) Y_lm(theta, phi).
@@ -480,12 +480,12 @@ def evaluate_state(
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_wavefunction.py -q`
 Expected: PASS (6 tests; the norm sweep takes a few seconds).
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -508,7 +508,7 @@ git commit -m "feat: full psi_nlm evaluation in both angular bases"
   - `SampleCloud` gains field `basis: str` (after `mu_ratio`, before `provenance`).
   - `sample_density(..., basis: str = "complex")` — for `"real"`, φ is drawn from the analytic marginal ∝ cos²(mφ) (m>0) / sin²(|m|φ) (m<0) / uniform (m=0); θ-marginal is identical to the complex basis (|Θ_l|m||² is shared).
 
-- [ ] **Step 1: Write the failing tests** — append to `tests/test_sampling.py`:
+- [x] **Step 1: Write the failing tests** — append to `tests/test_sampling.py`:
 
 ```python
 def _phis(cloud: SampleCloud) -> np.ndarray:
@@ -564,12 +564,12 @@ def test_rejects_unknown_basis():
         sample_density(1, 0, 0, count=1_000, basis="cartoon")
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_sampling.py -q`
 Expected: FAIL — `TypeError: sample_density() got an unexpected keyword argument 'basis'`.
 
-- [ ] **Step 3: Implement** — in `src/atomsim/sampling.py`:
+- [x] **Step 3: Implement** — in `src/atomsim/sampling.py`:
 
 Add `basis: str` field to `SampleCloud` after `mu_ratio`:
 
@@ -675,12 +675,12 @@ Provenance and return — replace the method/assumptions and constructor:
 
 Also update the module docstring's last sentence (real-orbital sampling has now arrived) and keep `validate_angular` semantics consistent (sampling keeps its inline |m| check — no import needed).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_sampling.py -q`
 Expected: PASS (17 tests).
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -706,7 +706,7 @@ git commit -m "feat: real-orbital Monte-Carlo sampling (analytic phi marginal)"
   - `fine_structure_shift(n, l, j, Z=1, mu_ratio=1.0, m_over_M=0.0) -> Quantity` — hartree, APPROXIMATION; `ΔE = -(mu_ratio · Z⁴ α² / (2 n⁴)) · (n/(j+½) − ¾)`; `error_estimate = |ΔE|·((Zα)² + m_over_M + 2·0.00116)` (α⁴ + recoil + g−2 scales).
   - `level_energy(n, l, j, Z=1, mu_ratio=1.0, m_over_M=0.0) -> Quantity` — hartree, APPROXIMATION: Bohr + shift.
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_fine_structure.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_fine_structure.py`:
 
 ```python
 import pytest
@@ -792,12 +792,12 @@ def test_alpha_matches_codata():
     assert abs(ALPHA - 0.0072973525643) < 1e-11
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_fine_structure.py tests/test_constants.py -q`
 Expected: FAIL — `ModuleNotFoundError` / `ImportError: cannot import name 'ALPHA'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/atomsim/constants.py`, below `HARTREE_EV`:
 
@@ -882,12 +882,12 @@ def level_energy(
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_fine_structure.py tests/test_constants.py -q`
 Expected: PASS (7 + existing constants tests).
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -912,7 +912,7 @@ git commit -m "feat: perturbative fine structure with honest error scales"
   - `get_system(key: str) -> System` — `KeyError` with available keys on miss.
   - `hydrogen_like(Z: int, mu_ratio: float = 1.0) -> System` — generic preset, infinite-nuclear-mass assumption stated when `mu_ratio == 1.0`.
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_systems.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_systems.py`:
 
 ```python
 import pytest
@@ -980,12 +980,12 @@ def test_unknown_key_lists_options():
         get_system("uranium")
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_systems.py -q`
 Expected: FAIL — `ModuleNotFoundError`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/systems.py`:
+- [x] **Step 3: Implement** — `src/atomsim/systems.py`:
 
 ```python
 """Exotic-but-real hydrogen-like system presets (spec 5.5).
@@ -1130,12 +1130,12 @@ def hydrogen_like(Z: int, mu_ratio: float = 1.0) -> System:
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_systems.py -q`
 Expected: PASS (8 tests).
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -1159,7 +1159,7 @@ git commit -m "feat: system preset registry with CODATA-cited reduced masses"
   - `LineList` frozen dataclass: `system_key: str`, `n_max: int`, `fine_structure: bool`, `lines: tuple[SpectralLine, ...]`, `provenance: Provenance`.
   - `transition_lines(system: System, n_max: int, fine_structure: bool = False) -> LineList` — all electric-dipole-allowed (Δl = ±1; plus Δj ∈ {0, ±1} when fine structure is on) transitions with `n_upper <= n_max`, sorted by wavelength.
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_spectra.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_spectra.py`:
 
 ```python
 import numpy as np
@@ -1249,12 +1249,12 @@ def test_n_max_validation():
         transition_lines(get_system("h"), n_max=1)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_spectra.py -q`
 Expected: FAIL — `ModuleNotFoundError`.
 
-- [ ] **Step 3: Implement** — `src/atomsim/spectra.py`:
+- [x] **Step 3: Implement** — `src/atomsim/spectra.py`:
 
 ```python
 """Spectral lines from level differences, with selection rules and provenance.
@@ -1373,12 +1373,12 @@ def transition_lines(
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_spectra.py -q`
 Expected: PASS (9 tests). If `test_gross_lyman_alpha_wavelength` fails on the 3rd decimal, print the computed value — the reference is `121.5670 nm`; a mismatch beyond 2e-3 nm means a units bug (check `_EV_NM` ≈ 1239.84198).
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -1406,13 +1406,13 @@ git commit -m "feat: spectral line lists with selection rules and per-line prove
 
 **Data acquisition rule (honesty-critical):** the JSON values MUST come from NIST ASD at execution time — never from model memory. Every file carries citation + retrieval date. A sanity gate compares each vendored wavelength to the computed gross line at 1e-4 relative, which catches transcription errors.
 
-- [ ] **Step 1: Fetch NIST data.** Use WebFetch on the NIST ASD lines query for H I, vacuum Ritz wavelengths (90–2000 nm window covers Lyman through Brackett for n ≤ 6):
+- [x] **Step 1: Fetch NIST data.** Use WebFetch on the NIST ASD lines query for H I, vacuum Ritz wavelengths (90–2000 nm window covers Lyman through Brackett for n ≤ 6):
 
 `https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=H+I&limits_type=0&low_w=90&upp_w=2000&unit=1&format=2&line_out=0&remove_js=on&en_unit=0&output=0&show_calc_wl=1&order_out=0&show_av=3&A_out=0&allowed_out=1&conf_out=on&term_out=on&J_out=on`
 
 Extract, for each transition between principal levels n_l < n_u ≤ 6, the **Ritz vacuum wavelength in nm** and its quoted uncertainty. **Curation rule:** NIST resolves fine-structure components (e.g. several Hα entries); vendor exactly ONE line per gross (n_u → n_l) transition — the strongest component (largest relative intensity / A-value), recording which component in the label. The 3e-5 gross tolerance absorbs the ~2e-5 component spread. Include ONLY n_u ≤ 6 (higher-series reference lines would mis-match against the n_max=6 computed list). If the query format fights the fetcher, fall back to the interactive-form documentation page and adjust parameters — never transcribe wavelengths from memory. Repeat for `spectra=He+II` (He II) and `spectra=D+I` (D I); if either fetch is unusable, skip that file (loader degrades gracefully) and note it in the commit message.
 
-- [ ] **Step 2: Write the JSON + loader + sanity gate.**
+- [x] **Step 2: Write the JSON + loader + sanity gate.**
 
 `src/atomsim/data/__init__.py`:
 
@@ -1540,7 +1540,7 @@ def compare_lines(
 
 (Move the `import json` / `from importlib import resources` lines up into the module's import block, sorted.)
 
-- [ ] **Step 3: Write the tests** — append to `tests/test_spectra.py`:
+- [x] **Step 3: Write the tests** — append to `tests/test_spectra.py`:
 
 ```python
 from atomsim.spectra import compare_lines, load_reference
@@ -1593,7 +1593,7 @@ def test_unknown_system_reference_is_none():
 
 (Also add `from atomsim.spectra import ReferenceData` to the imports for `test_fine_structure_improves_lyman_alpha`.)
 
-- [ ] **Step 4: Reinstall (package data), run tests**
+- [x] **Step 4: Reinstall (package data), run tests**
 
 ```powershell
 $env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pip install -e ".[dev]"
@@ -1602,7 +1602,7 @@ $env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n ato
 
 Expected: PASS (14 tests). If the tier-tolerance test fails marginally (relative errors clustered just above 3e-5), inspect whether the reference wavelengths are truly vacuum — air wavelengths differ by ~2.8e-4 relative in the optical and mean the fetch grabbed the wrong column.
 
-- [ ] **Step 5: Lint, full suite, commit**
+- [x] **Step 5: Lint, full suite, commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -1629,7 +1629,7 @@ git commit -m "feat: vendored NIST reference lines + comparison API with tier to
   - `POST /api/jobs/sample` body gains `basis: "complex"|"real" = "complex"` and `system: str = "h"`; meta response gains `basis` and `system`.
   - `web/src/api/types.ts` mirrors all of the above 1:1 (`SystemInfo`, `LevelInfo`, `RadialResponse`, `SpectralLineInfo`, `ComparisonInfo`, `SpectrumResponse`; `SampleMeta` gains `basis: string; system: string`).
 
-- [ ] **Step 1: Write the failing tests** — append to `tests/test_server.py`:
+- [x] **Step 1: Write the failing tests** — append to `tests/test_server.py`:
 
 ```python
 def test_systems_endpoint_lists_presets(client):
@@ -1709,12 +1709,12 @@ def test_sample_job_rejects_bad_basis(client):
     assert r.status_code == 422
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `$env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_server.py -q`
 Expected: new tests FAIL (404s / missing keys); the 9 pre-existing tests still pass EXCEPT `test_state_carries_exact_provenance`, which asserts `energy == -0.125` — the state endpoint becoming μ-aware changes it to `-0.125·μ'`. Update that assertion in place to `pytest.approx(-0.125 * 0.9994557, rel=1e-6)` — this is a deliberate physics improvement (the M1 endpoint silently assumed infinite nuclear mass; now it is honest about hydrogen).
 
-- [ ] **Step 3: Implement schemas** — append to `src/atomsim/server/schemas.py`:
+- [x] **Step 3: Implement schemas** — append to `src/atomsim/server/schemas.py`:
 
 ```python
 from atomsim.spectra import LineComparison, SpectralLine
@@ -1783,7 +1783,7 @@ class ComparisonModel(BaseModel):
 
 (`BaseModel`, `QuantityModel` already imported/defined in the module; add the two new imports to the sorted import block.)
 
-- [ ] **Step 4: Implement endpoints** — in `src/atomsim/server/app.py`:
+- [x] **Step 4: Implement endpoints** — in `src/atomsim/server/app.py`:
 
 New imports (merge into the sorted block):
 
@@ -1994,7 +1994,7 @@ In `sample_meta`, add:
             system=app.state.job_systems.get(job_id, "h"),
 ```
 
-- [ ] **Step 5: Mirror in TypeScript** — `web/src/api/types.ts`, append (and extend `SampleMeta`):
+- [x] **Step 5: Mirror in TypeScript** — `web/src/api/types.ts`, append (and extend `SampleMeta`):
 
 ```ts
 export interface SystemInfo {
@@ -2063,7 +2063,7 @@ export interface SpectrumResponse {
 
 `StateResponse` in types.ts gains `system: SystemInfo; levels: LevelInfo[];`. `SampleMeta` gains `basis: string; system: string;`.
 
-- [ ] **Step 6: Run all tests**
+- [x] **Step 6: Run all tests**
 
 ```powershell
 $env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest tests/test_server.py -q
@@ -2076,7 +2076,7 @@ cd ..
 
 Expected: all PASS; `npm run build` type-checks the mirrored types.
 
-- [ ] **Step 7: Lint and commit**
+- [x] **Step 7: Lint and commit**
 
 ```powershell
 & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim ruff check .
@@ -2091,7 +2091,7 @@ git commit -m "feat: systems/radial/spectrum endpoints, basis+system-aware sampl
 **Files:**
 - Modify: `README.md` (status section), this plan (check boxes)
 
-- [ ] **Step 1: README status** — in the `## Status — Phase 1 walking skeleton` section, retitle to `## Status — Phase 1 M2: engine depth` and add bullets (keep existing ones that still hold):
+- [x] **Step 1: README status** — in the `## Status — Phase 1 walking skeleton` section, retitle to `## Status — Phase 1 M2: engine depth` and add bullets (keep existing ones that still hold):
 
 ```markdown
 - Real AND complex angular bases engine-wide (chemistry p_x/d_xy orbitals vs
@@ -2103,7 +2103,7 @@ git commit -m "feat: systems/radial/spectrum endpoints, basis+system-aware sampl
 - System presets: H, D, T, muonic hydrogen, positronium, He+, generic Z
 ```
 
-- [ ] **Step 2: Full verification sweep**
+- [x] **Step 2: Full verification sweep**
 
 ```powershell
 $env:PYTHONUTF8='1'; & "C:\ProgramData\miniforge3\condabin\conda.bat" run -n atomsim python -m pytest -q
@@ -2116,7 +2116,7 @@ cd ..
 
 Expected: everything green (~130 Python tests, 8 vitest).
 
-- [ ] **Step 3: Commit, push, verify CI**
+- [x] **Step 3: Commit, push, verify CI**
 
 ```powershell
 git add README.md docs/superpowers/plans/2026-07-06-phase1-m2-engine-depth.md
