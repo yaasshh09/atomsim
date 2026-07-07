@@ -22,6 +22,10 @@ class System:
     mu_ratio: Quantity  # mu / m_e, unit "m_e"
     m_over_M: float     # orbiting mass / nuclear mass (recoil scale)
     description: str
+    # rms charge radius of the nucleus, in bohr (engine canonical unit).
+    # None means honestly absent: a point lepton (positronium's positron) or
+    # a generic Z with no identified nucleus — never a silent zero.
+    nuclear_radius: Quantity | None = None
 
 
 def _mass_ratio(constant_name: str) -> tuple[float, float]:
@@ -29,9 +33,47 @@ def _mass_ratio(constant_name: str) -> tuple[float, float]:
     return value, unc
 
 
+_A0_M = _sc.physical_constants["Bohr radius"][0]
+
+
+def _radius_quantity(
+    r_m: float, unc_m: float, nucleus: str, source: str
+) -> Quantity:
+    """Nuclear rms charge radius as an engine Quantity (bohr)."""
+    return Quantity(
+        value=r_m / _A0_M,
+        unit="bohr",
+        label=f"nuclear rms charge radius ({nucleus})",
+        provenance=Provenance(
+            fidelity=Fidelity.EXACT,
+            method=f"measured rms charge radius of the {nucleus}, {source}",
+            assumptions=(
+                "reference measurement, not a prediction of this model",
+                "the Coulomb engine still treats the nucleus as a point charge",
+            ),
+            error_estimate=unc_m / _A0_M,
+        ),
+    )
+
+
+def _codata_radius(constant_name: str, nucleus: str) -> Quantity:
+    r_m, _unit, unc_m = _sc.physical_constants[constant_name]
+    return _radius_quantity(
+        r_m, unc_m, nucleus, f"CODATA (scipy.constants: {constant_name})"
+    )
+
+
+# Triton is absent from scipy's CODATA table; standard compilation value.
+_TRITON_RADIUS = _radius_quantity(
+    1.7591e-15, 0.0363e-15, "triton",
+    "Angeli & Marinova (2013), At. Data Nucl. Data Tables 99, 69",
+)
+
+
 def _codata_system(
     key: str, name: str, Z: int, nucleus_constant: str, description: str,
     orbiter_constant: str | None = None,
+    nuclear_radius: Quantity | None = None,
 ) -> System:
     """Build a preset from CODATA mass ratios (electron orbiter unless given)."""
     R_nuc, u_nuc = _mass_ratio(nucleus_constant)  # M / m_e
@@ -63,6 +105,7 @@ def _codata_system(
         ),
         m_over_M=r_orb / R_nuc,
         description=description,
+        nuclear_radius=nuclear_radius,
     )
 
 
@@ -88,17 +131,23 @@ _POSITRONIUM = System(
 
 _SYSTEMS: tuple[System, ...] = (
     _codata_system("h", "Hydrogen", 1, "proton-electron mass ratio",
-                   "Ordinary hydrogen: electron + proton."),
+                   "Ordinary hydrogen: electron + proton.",
+                   nuclear_radius=_codata_radius("proton rms charge radius", "proton")),
     _codata_system("d", "Deuterium", 1, "deuteron-electron mass ratio",
-                   "Heavy hydrogen: electron + deuteron."),
+                   "Heavy hydrogen: electron + deuteron.",
+                   nuclear_radius=_codata_radius("deuteron rms charge radius", "deuteron")),
     _codata_system("t", "Tritium", 1, "triton-electron mass ratio",
-                   "Radioactive hydrogen isotope: electron + triton."),
+                   "Radioactive hydrogen isotope: electron + triton.",
+                   nuclear_radius=_TRITON_RADIUS),
     _codata_system("mu-h", "Muonic hydrogen", 1, "proton-electron mass ratio",
                    "Muon orbiting a proton: ~186x smaller, ~186x deeper.",
-                   orbiter_constant="muon-electron mass ratio"),
+                   orbiter_constant="muon-electron mass ratio",
+                   nuclear_radius=_codata_radius("proton rms charge radius", "proton")),
     _POSITRONIUM,
     _codata_system("he+", "Helium ion He+", 2, "alpha particle-electron mass ratio",
-                   "One-electron helium: Z=2 scaling on real helium-4."),
+                   "One-electron helium: Z=2 scaling on real helium-4.",
+                   nuclear_radius=_codata_radius(
+                       "alpha particle rms charge radius", "alpha particle")),
 )
 
 

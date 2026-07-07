@@ -61,3 +61,39 @@ def test_generic_hydrogen_like():
 def test_unknown_key_lists_options():
     with pytest.raises(KeyError, match="he\\+"):
         get_system("uranium")
+
+
+A0_M = sc.physical_constants["Bohr radius"][0]
+
+
+def test_nuclear_radius_codata_values():
+    # engine-canonical unit: bohr; values from CODATA rms charge radii
+    cases = {
+        "h": "proton rms charge radius",
+        "d": "deuteron rms charge radius",
+        "mu-h": "proton rms charge radius",
+        "he+": "alpha particle rms charge radius",
+    }
+    for key, const in cases.items():
+        q = get_system(key).nuclear_radius
+        assert q is not None
+        r_m, _unit, unc_m = sc.physical_constants[const]
+        assert q.value == pytest.approx(r_m / A0_M, rel=1e-12)
+        assert q.unit == "bohr"
+        assert q.provenance.fidelity is Fidelity.EXACT
+        assert "CODATA" in q.provenance.method
+        assert q.provenance.error_estimate == pytest.approx(unc_m / A0_M, rel=1e-9)
+
+
+def test_nuclear_radius_triton_is_cited_literature():
+    q = get_system("t").nuclear_radius
+    assert q is not None
+    assert q.value == pytest.approx(1.7591e-15 / A0_M, rel=1e-9)
+    assert "Angeli" in q.provenance.method  # not in scipy's CODATA table
+    assert q.provenance.error_estimate == pytest.approx(0.0363e-15 / A0_M, rel=1e-6)
+
+
+def test_point_lepton_and_generic_have_no_nuclear_radius():
+    # positronium's "nucleus" is a positron — a point lepton; honesty is the absence
+    assert get_system("ps").nuclear_radius is None
+    assert hydrogen_like(3).nuclear_radius is None
