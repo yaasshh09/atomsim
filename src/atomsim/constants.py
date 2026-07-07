@@ -21,6 +21,9 @@ ALPHA: float = _sc.fine_structure
 # Real-universe display anchor ONLY (same caveat): pm-per-bohr for readouts.
 BOHR_RADIUS_PM: float = _sc.physical_constants["Bohr radius"][0] * 1e12
 
+# Real-universe display anchor ONLY (same caveat): fm-per-bohr for nuclear radii.
+BOHR_RADIUS_FM: float = _sc.physical_constants["Bohr radius"][0] * 1e15
+
 
 @dataclass(frozen=True)
 class FundamentalConstants:

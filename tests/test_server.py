@@ -361,3 +361,21 @@ def test_plane_job_psi_quantity_and_validation(client):
     assert client.post(
         "/api/jobs/plane", json={"n": 1, "l": 1, "m": 0}
     ).status_code == 422
+
+
+def test_systems_carry_nuclear_radius(client):
+    systems = {s["key"]: s for s in client.get("/api/systems").json()["systems"]}
+    r_bohr = systems["h"]["nuclear_radius"]
+    r_fm = systems["h"]["nuclear_radius_fm"]
+    assert r_bohr["unit"] == "bohr"
+    assert r_fm["unit"] == "fm"
+    assert r_fm["value"] == pytest.approx(0.84075, rel=1e-6)
+    assert r_fm["provenance"]["fidelity"] == "exact"
+    assert "CODATA" in r_fm["provenance"]["method"]
+    assert r_fm["provenance"]["error_estimate"] == pytest.approx(6.4e-4, rel=1e-2)
+    # point lepton: honestly absent, not zero
+    assert systems["ps"]["nuclear_radius"] is None
+    assert systems["ps"]["nuclear_radius_fm"] is None
+    # the embedded system on /api/state carries it too
+    state_sys = client.get("/api/state/1/0/0?system=mu-h").json()["system"]
+    assert state_sys["nuclear_radius_fm"]["value"] == pytest.approx(0.84075, rel=1e-6)

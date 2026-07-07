@@ -4,10 +4,12 @@ Defined exactly once here; web/src/api/types.ts mirrors these shapes.
 Provenance reaches the browser by construction, never as an afterthought.
 """
 
+import dataclasses
 from typing import Literal
 
 from pydantic import BaseModel
 
+from atomsim.constants import BOHR_RADIUS_FM
 from atomsim.provenance import Field, Provenance, Quantity
 from atomsim.spectra import LineComparison, SpectralLine
 from atomsim.systems import System
@@ -82,6 +84,23 @@ class FieldModel(BaseModel):
         )
 
 
+def _to_fm(q: Quantity) -> Quantity:
+    """Display conversion bohr -> fm for nuclear radii (server boundary only)."""
+    return Quantity(
+        value=q.value * BOHR_RADIUS_FM,
+        unit="fm",
+        label=q.label + " [fm]",
+        provenance=dataclasses.replace(
+            q.provenance,
+            method=q.provenance.method + "; converted to fm via CODATA Bohr radius",
+            error_estimate=(
+                None if q.provenance.error_estimate is None
+                else q.provenance.error_estimate * BOHR_RADIUS_FM
+            ),
+        ),
+    )
+
+
 class SystemModel(BaseModel):
     key: str
     name: str
@@ -89,9 +108,13 @@ class SystemModel(BaseModel):
     mu_ratio: QuantityModel
     m_over_m_nucleus: float
     description: str
+    # None = honestly absent (point lepton or unidentified nucleus), never zero
+    nuclear_radius: QuantityModel | None
+    nuclear_radius_fm: QuantityModel | None
 
     @classmethod
     def from_system(cls, s: System) -> "SystemModel":
+        r = s.nuclear_radius
         return cls(
             key=s.key,
             name=s.name,
@@ -99,6 +122,8 @@ class SystemModel(BaseModel):
             mu_ratio=QuantityModel.from_quantity(s.mu_ratio),
             m_over_m_nucleus=s.m_over_M,
             description=s.description,
+            nuclear_radius=None if r is None else QuantityModel.from_quantity(r),
+            nuclear_radius_fm=None if r is None else QuantityModel.from_quantity(_to_fm(r)),
         )
 
 
