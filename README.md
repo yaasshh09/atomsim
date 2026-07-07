@@ -17,7 +17,20 @@ carries provenance:
 | `COUNTERFACTUAL` | Deliberately altered physics, computed rigorously |
 | `VISUAL LIBERTY` | Purely presentational choice, disclosed |
 
-## Status — Phase 1 M3: UI depth
+## Status — Phase 1 complete (M4: polish)
+
+- **Nucleus scale modes**: draw the nucleus at **true scale** (the measured
+  r_rms, honestly subpixel — the caption says that IS the physics) or as a
+  disclosed **visible marker** whose live magnification factor is stated
+  (VISUAL LIBERTY badge). CODATA charge radii for p/d/α, cited literature for
+  the triton; positronium draws nothing — a point lepton has no size, and the
+  UI says so.
+- **Deep links**: every app state is addressable by URL — the demo-script
+  hooks for the Phase 2 guided tour.
+- **Perf polish**: app chunk 60 kB after vendor splitting (three.js/katex
+  cache independently); measured-FPS readout keeps rendering honest.
+
+Everything below landed in M1–M3:
 
 - **`atomsim serve` opens the full "Hydrogen, Honestly" app** — five views over
   any hydrogen-like (n, l, m) state, each labeled with exactly what it plots:
