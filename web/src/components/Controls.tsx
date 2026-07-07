@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppStore } from "../state/store";
 import type { ColorMode, ViewMode } from "../state/store";
+import { ShowPhysics } from "./ShowPhysics";
 
 const N_CHOICES = [1, 2, 3, 4, 5, 6];
 const COUNT_CHOICES = [10_000, 50_000, 100_000, 250_000];
@@ -138,6 +139,7 @@ export function Controls() {
         {status === "sampling" ? `Sampling ${(progress * 100).toFixed(0)}%` : "Sample"}
       </button>
       {status === "error" && error && <p className="error">{error}</p>}
+      <ShowPhysics />
     </aside>
   );
 }
