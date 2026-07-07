@@ -21,11 +21,13 @@ from atomsim.analytic.hydrogen import (
     radial_wavefunction,
     validate_quantum_numbers,
 )
+from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
 from atomsim.constants import HARTREE_EV
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
 from atomsim.server.jobs import Job, JobStatus, JobStore
 from atomsim.server.schemas import (
+    ChannelModel,
     ComparisonModel,
     FieldModel,
     LineModel,
@@ -98,6 +100,7 @@ class JobModel(BaseModel):
 
 
 class SampleMetaModel(BaseModel):
+    kind: Literal["sample"] = "sample"
     count: int
     dtype: str
     layout: str
@@ -108,6 +111,15 @@ class SampleMetaModel(BaseModel):
     basis: str
     system: str
     provenance: ProvenanceModel
+    channels: list[ChannelModel]
+
+
+@dataclasses.dataclass(frozen=True)
+class SampleJobResult:
+    """A sampled cloud plus psi evaluated at exactly those positions."""
+
+    cloud: SampleCloud
+    psi: WavefunctionValues
 
 
 def _validate_state(n: int, l: int, m: int) -> None:
@@ -135,7 +147,8 @@ def _job_model(job: Job) -> JobModel:
     return JobModel(id=job.id, status=job.status.value, progress=job.progress, error=job.error)
 
 
-def _finished_cloud(jobs: JobStore, job_id: str) -> SampleCloud:
+def _finished_result(jobs: JobStore, job_id: str):
+    """Return the finished job's result container (sample or, later, plane)."""
     job = jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
@@ -261,11 +274,17 @@ def create_app() -> FastAPI:
         app.state.job_systems[job.id] = req.system
 
         def work(progress):
-            return sample_density(
+            cloud = sample_density(
                 req.n, req.l, req.m, req.count,
                 Z=sys_.Z, mu_ratio=sys_.mu_ratio.value,
-                seed=req.seed, progress=progress, basis=req.basis,
+                seed=req.seed, progress=lambda f: progress(0.9 * f), basis=req.basis,
             )
+            psi = evaluate_state(
+                req.n, req.l, req.m, cloud.positions.astype(np.float64),
+                Z=sys_.Z, mu_ratio=sys_.mu_ratio.value, basis=req.basis,
+            )
+            progress(1.0)
+            return SampleJobResult(cloud=cloud, psi=psi)
 
         loop = asyncio.get_running_loop()
         loop.run_in_executor(None, jobs.run, job.id, work)
@@ -278,27 +297,52 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
         return _job_model(job)
 
-    @app.get("/api/jobs/{job_id}/meta", response_model=SampleMetaModel)
-    def sample_meta(job_id: str) -> SampleMetaModel:
-        cloud = _finished_cloud(jobs, job_id)
+    def _sample_meta(res: SampleJobResult, system_key: str) -> SampleMetaModel:
+        cloud = res.cloud
+        channels = [
+            ChannelModel(
+                name="positions", dtype="float32", unit="bohr",
+                provenance=ProvenanceModel.from_provenance(cloud.provenance),
+            ),
+            ChannelModel(
+                name="density", dtype="float32", unit="bohr^-3",
+                provenance=ProvenanceModel.from_provenance(res.psi.provenance),
+            ),
+        ]
+        if cloud.basis == "complex":
+            channels.append(
+                ChannelModel(
+                    name="phase", dtype="float32", unit="rad",
+                    provenance=ProvenanceModel.from_provenance(res.psi.provenance),
+                )
+            )
         return SampleMetaModel(
-            count=cloud.positions.shape[0],
-            dtype="float32",
-            layout="xyz-interleaved",
-            unit="bohr",
-            n=cloud.n,
-            l=cloud.l,
-            m=cloud.m,
-            basis=cloud.basis,
-            system=app.state.job_systems.get(job_id, "h"),
+            count=cloud.positions.shape[0], dtype="float32", layout="xyz-interleaved",
+            unit="bohr", n=cloud.n, l=cloud.l, m=cloud.m, basis=cloud.basis,
+            system=system_key,
             provenance=ProvenanceModel.from_provenance(cloud.provenance),
+            channels=channels,
         )
 
+    @app.get("/api/jobs/{job_id}/meta", response_model=SampleMetaModel)
+    def job_meta(job_id: str) -> SampleMetaModel:
+        res = _finished_result(jobs, job_id)
+        return _sample_meta(res, app.state.job_systems.get(job_id, "h"))
+
     @app.get("/api/jobs/{job_id}/data")
-    def sample_data(job_id: str) -> Response:
-        cloud = _finished_cloud(jobs, job_id)
+    def job_data(job_id: str, channel: str | None = None) -> Response:
+        res = _finished_result(jobs, job_id)
+        name = channel or "positions"
+        if name == "positions":
+            payload = res.cloud.positions
+        elif name == "density":
+            payload = (np.abs(res.psi.values) ** 2).astype(np.float32)
+        elif name == "phase" and res.cloud.basis == "complex":
+            payload = np.angle(res.psi.values).astype(np.float32)
+        else:
+            raise HTTPException(status_code=422, detail=f"no channel {name!r} on this job")
         return Response(
-            content=cloud.positions.tobytes(), media_type="application/octet-stream"
+            content=payload.tobytes(), media_type="application/octet-stream"
         )
 
     @app.websocket("/ws/jobs/{job_id}")

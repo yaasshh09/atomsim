@@ -35,6 +35,15 @@ class ProvenanceModel(BaseModel):
         )
 
 
+class ChannelModel(BaseModel):
+    """One binary per-point channel of a sample job (positions / density / phase)."""
+
+    name: str
+    dtype: str
+    unit: str
+    provenance: ProvenanceModel
+
+
 class QuantityModel(BaseModel):
     value: float
     unit: str

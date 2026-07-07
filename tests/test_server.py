@@ -203,3 +203,57 @@ def test_sample_job_rejects_bad_basis(client):
         json={"n": 1, "l": 0, "m": 0, "basis": "cartoon"},
     )
     assert r.status_code == 422
+
+
+def test_sample_channels_complex_basis(client):
+    r = client.post(
+        "/api/jobs/sample", json={"n": 2, "l": 1, "m": 1, "count": 4000, "seed": 5}
+    )
+    job_id = r.json()["id"]
+    assert _wait_done(client, job_id)["status"] == "done"
+
+    meta = client.get(f"/api/jobs/{job_id}/meta").json()
+    assert meta["kind"] == "sample"
+    names = [c["name"] for c in meta["channels"]]
+    assert names == ["positions", "density", "phase"]
+    assert all(c["dtype"] == "float32" for c in meta["channels"])
+    assert meta["channels"][1]["unit"] == "bohr^-3"
+    assert meta["channels"][2]["unit"] == "rad"
+    assert meta["channels"][2]["provenance"]["fidelity"] == "exact"
+
+    density = np.frombuffer(
+        client.get(f"/api/jobs/{job_id}/data?channel=density").content, dtype=np.float32
+    )
+    phase = np.frombuffer(
+        client.get(f"/api/jobs/{job_id}/data?channel=phase").content, dtype=np.float32
+    )
+    assert density.shape == (4000,)
+    assert (density >= 0.0).all() and density.max() > 0.0
+    assert phase.shape == (4000,)
+    assert (np.abs(phase) <= np.pi + 1e-6).all()
+
+    # wiring check: channels must equal a direct re-evaluation at the sampled points
+    # (with the H system's reduced mass, exactly as the server evaluates)
+    from atomsim.analytic.wavefunction import evaluate_state
+    from atomsim.systems import get_system
+
+    xyz = np.frombuffer(
+        client.get(f"/api/jobs/{job_id}/data").content, dtype=np.float32
+    ).reshape(-1, 3)
+    mu = get_system("h").mu_ratio.value
+    psi = evaluate_state(2, 1, 1, xyz.astype(np.float64), mu_ratio=mu).values
+    assert np.allclose(density, (np.abs(psi) ** 2).astype(np.float32), rtol=1e-5, atol=0)
+    assert np.allclose(phase, np.angle(psi).astype(np.float32), atol=1e-5)
+
+
+def test_sample_channels_real_basis_has_no_phase(client):
+    r = client.post(
+        "/api/jobs/sample",
+        json={"n": 2, "l": 1, "m": 1, "count": 2000, "seed": 5, "basis": "real"},
+    )
+    job_id = r.json()["id"]
+    assert _wait_done(client, job_id)["status"] == "done"
+    meta = client.get(f"/api/jobs/{job_id}/meta").json()
+    assert [c["name"] for c in meta["channels"]] == ["positions", "density"]
+    assert client.get(f"/api/jobs/{job_id}/data?channel=phase").status_code == 422
+    assert client.get(f"/api/jobs/{job_id}/data?channel=vibes").status_code == 422
