@@ -1,5 +1,6 @@
 import { CloudView } from "./components/CloudView";
 import { Controls } from "./components/Controls";
+import { GalleryStrip } from "./components/GalleryStrip";
 import { InfoPanel } from "./components/InfoPanel";
 import { LevelsView } from "./components/LevelsView";
 import { PlaneView } from "./components/PlaneView";
@@ -18,6 +19,7 @@ export default function App() {
         {view === "radial" && <RadialView />}
         {view === "levels" && <LevelsView />}
         {view === "spectrum" && <SpectrumView />}
+        <GalleryStrip />
       </main>
       <Controls />
     </div>

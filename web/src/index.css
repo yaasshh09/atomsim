@@ -385,3 +385,51 @@ button.primary:disabled {
 .tol-band {
   fill: rgb(124 255 178 / 0.08);
 }
+
+.gallery {
+  border-top: 1px solid var(--edge);
+  padding: 0.5rem 1rem;
+  background: var(--panel);
+}
+
+.gallery-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.gallery-scroll {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+}
+
+.thumb {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 0.3rem;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.thumb img {
+  border-radius: 4px;
+  display: block;
+  background: #000;
+}
+
+.thumb-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
