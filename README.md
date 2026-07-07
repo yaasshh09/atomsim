@@ -17,12 +17,32 @@ carries provenance:
 | `COUNTERFACTUAL` | Deliberately altered physics, computed rigorously |
 | `VISUAL LIBERTY` | Purely presentational choice, disclosed |
 
-## Status — Phase 1 M2: engine depth
+## Status — Phase 1 M3: UI depth
 
-- **`atomsim serve` opens a browser app**: pick any hydrogen (n, l, m) state,
-  press **Sample**, and explore a rotatable 3D Monte-Carlo point cloud of |ψ|² —
-  every displayed quantity carries a clickable provenance badge (method,
-  assumptions, error scale)
+- **`atomsim serve` opens the full "Hydrogen, Honestly" app** — five views over
+  any hydrogen-like (n, l, m) state, each labeled with exactly what it plots:
+  1. **3D point cloud** — Monte-Carlo |ψ|² samples; colour by solid accent,
+     density (inferno), or **phase as hue** (complex basis), with a live legend
+     and a measured-FPS readout
+  2. **2D cross-section** — y=0 plane as inferno |ψ|² or diverging signed ψ
+     (honest label: ψ is real on that plane, e^{imφ} = ±1)
+  3. **Radial plots** — R(r) and P(r) = r²R² with the ⟨r⟩ marker
+  4. **Energy levels** — gross levels with degeneracies plus a zoomed µeV
+     fine-structure column (two scales, labeled, never blended)
+  5. **Spectrum** — computed emission lines vs vendored NIST ASD reference with
+     a residual band at the stated tolerance
+- **Thumbnail gallery** of every (l, m) state in the shell — server-rendered
+  matplotlib PNGs, disclosed as gamma-brightened navigation aids
+- **Layered math**: a per-view "Show the physics" KaTeX expander — the app is
+  fully usable with it closed
+- Honesty UI throughout: γ-compression, point glow, and axis choices are
+  disclosed `VISUAL LIBERTY` provenances; what is plotted is labeled exactly
+  (|ψ|² vs ψ — the fix over the classic poster's contradictory colorbar)
+- One colour authority: client LUTs are generated from matplotlib
+  (`scripts/gen_luts.py`), so densities look identical in thumbnails, the 2D
+  canvas, and the 3D cloud
+- Readouts with provenance: E (hartree/eV), ⟨R⟩ (a₀/pm), |L| (ℏ), radial +
+  angular node counts, fine-structure shifts (µeV)
 - Provenance system: every boundary-crossing value is a `Quantity` (scalar),
   a `Field` (array), or a container carrying its own `Provenance`
 - Exact hydrogen-like physics: energies + radial wavefunctions, reduced-mass
@@ -70,9 +90,11 @@ To run the validation suites:
 Full specification: [docs/superpowers/specs/2026-07-04-atom-sim-requirements-design.md](docs/superpowers/specs/2026-07-04-atom-sim-requirements-design.md).
 Phase 1 — "Hydrogen, Honestly" — is underway
 ([design](docs/superpowers/specs/2026-07-05-phase1-hydrogen-honestly-design.md)):
-milestones M1 (walking skeleton) and M2 (engine depth: real orbitals, fine
-structure, spectra vs NIST) of 4 are done. Next: UI depth (2D density
-cross-sections, poster mode, state gallery), then polish.
+milestones M1 (walking skeleton), M2 (engine depth: real orbitals, fine
+structure, spectra vs NIST) and M3 (UI depth: five views, colour modes,
+gallery, layered math — deps added: matplotlib, d3-scale, katex) of 4 are
+done. Next: M4 polish. Poster mode lands in Phase 2 and will reuse the M3
+plane-grid and thumbnail machinery.
 
 ## License
 
