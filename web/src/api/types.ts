@@ -45,6 +45,7 @@ export interface LevelInfo {
   energy: Quantity;
   energy_ev: Quantity;
   shift: Quantity;
+  shift_ev: Quantity;
 }
 
 export interface StateResponse {
@@ -55,7 +56,40 @@ export interface StateResponse {
   energy: Quantity;
   energy_ev: Quantity;
   mean_radius: Quantity;
+  mean_radius_pm: Quantity;
+  angular_momentum: Quantity;
+  radial_nodes: number;
+  angular_nodes: number;
   levels: LevelInfo[];
+}
+
+export interface SystemsResponse {
+  systems: SystemInfo[];
+}
+
+export interface GrossLevel {
+  n: number;
+  degeneracy: number;
+  energy: Quantity;
+  energy_ev: Quantity;
+}
+
+export interface FineLevel {
+  n: number;
+  l: number;
+  j: number;
+  energy: Quantity;
+  energy_ev: Quantity;
+  shift: Quantity;
+  shift_ev: Quantity;
+}
+
+export interface LevelsResponse {
+  system: SystemInfo;
+  n_max: number;
+  fine_structure: boolean;
+  gross: GrossLevel[];
+  fine: FineLevel[] | null;
 }
 
 export interface RadialResponse {
@@ -105,7 +139,15 @@ export interface JobInfo {
   error: string | null;
 }
 
+export interface ChannelInfo {
+  name: string;
+  dtype: string;
+  unit: string;
+  provenance: Provenance;
+}
+
 export interface SampleMeta {
+  kind: "sample";
   count: number;
   dtype: string;
   layout: string;
@@ -116,4 +158,25 @@ export interface SampleMeta {
   basis: string;
   system: string;
   provenance: Provenance;
+  channels: ChannelInfo[];
 }
+
+export interface PlaneMeta {
+  kind: "plane";
+  resolution: number;
+  dtype: string;
+  layout: string;
+  quantity: "density" | "psi";
+  unit: string;
+  label: string;
+  half_extent: number;
+  axis_unit: string;
+  n: number;
+  l: number;
+  m: number;
+  basis: string;
+  system: string;
+  provenance: Provenance;
+}
+
+export type JobMeta = SampleMeta | PlaneMeta;

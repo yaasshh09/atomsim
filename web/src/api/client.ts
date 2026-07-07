@@ -1,4 +1,15 @@
-import type { JobInfo, SampleMeta, StateResponse } from "./types";
+import type {
+  JobInfo,
+  JobMeta,
+  LevelsResponse,
+  RadialResponse,
+  SpectrumResponse,
+  StateResponse,
+  SystemsResponse,
+} from "./types";
+
+export type Basis = "complex" | "real";
+export type PlaneQuantity = "density" | "psi";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -6,24 +17,82 @@ async function getJson<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function getState(n: number, l: number, m: number): Promise<StateResponse> {
-  return getJson(`/api/state/${n}/${l}/${m}`);
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  return res.json() as Promise<T>;
 }
 
-export async function createSampleJob(
+export function getSystems(): Promise<SystemsResponse> {
+  return getJson("/api/systems");
+}
+
+export function getState(
   n: number,
   l: number,
   m: number,
-  count: number,
-  seed = 0,
-): Promise<JobInfo> {
-  const res = await fetch("/api/jobs/sample", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ n, l, m, count, seed }),
-  });
-  if (!res.ok) throw new Error(`sample job: HTTP ${res.status}`);
-  return res.json() as Promise<JobInfo>;
+  system: string,
+  fineStructure: boolean,
+): Promise<StateResponse> {
+  return getJson(
+    `/api/state/${n}/${l}/${m}?system=${system}&fine_structure=${fineStructure}`,
+  );
+}
+
+export function getRadial(n: number, l: number, system: string): Promise<RadialResponse> {
+  return getJson(`/api/radial/${n}/${l}?system=${system}`);
+}
+
+export function getLevels(
+  system: string,
+  nMax: number,
+  fineStructure: boolean,
+): Promise<LevelsResponse> {
+  return getJson(
+    `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}`,
+  );
+}
+
+export function getSpectrum(
+  system: string,
+  nMax: number,
+  fineStructure: boolean,
+): Promise<SpectrumResponse> {
+  return getJson(
+    `/api/spectrum?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}`,
+  );
+}
+
+export interface SampleParams {
+  n: number;
+  l: number;
+  m: number;
+  count: number;
+  seed?: number;
+  basis: Basis;
+  system: string;
+}
+
+export function createSampleJob(params: SampleParams): Promise<JobInfo> {
+  return postJson("/api/jobs/sample", { seed: 0, ...params });
+}
+
+export interface PlaneParams {
+  n: number;
+  l: number;
+  m: number;
+  quantity: PlaneQuantity;
+  basis: Basis;
+  system: string;
+  resolution?: number;
+}
+
+export function createPlaneJob(params: PlaneParams): Promise<JobInfo> {
+  return postJson("/api/jobs/plane", { resolution: 512, ...params });
 }
 
 export function watchJob(jobId: string, onProgress: (p: number) => void): Promise<void> {
@@ -49,14 +118,24 @@ export function watchJob(jobId: string, onProgress: (p: number) => void): Promis
   });
 }
 
-export function getSampleMeta(jobId: string): Promise<SampleMeta> {
+export function getJobMeta(jobId: string): Promise<JobMeta> {
   return getJson(`/api/jobs/${jobId}/meta`);
 }
 
-export async function getSampleData(jobId: string): Promise<Float32Array> {
-  const res = await fetch(`/api/jobs/${jobId}/data`);
-  if (!res.ok) throw new Error(`sample data: HTTP ${res.status}`);
-  return decodePositions(await res.arrayBuffer());
+export async function getChannel(jobId: string, channel?: string): Promise<Float32Array> {
+  const url = channel
+    ? `/api/jobs/${jobId}/data?channel=${channel}`
+    : `/api/jobs/${jobId}/data`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  return decodeFloats(await res.arrayBuffer());
+}
+
+export function decodeFloats(buffer: ArrayBuffer): Float32Array {
+  if (buffer.byteLength % 4 !== 0) {
+    throw new Error(`byte length ${buffer.byteLength} is not a multiple of 4 (float32)`);
+  }
+  return new Float32Array(buffer);
 }
 
 export function decodePositions(buffer: ArrayBuffer): Float32Array {
@@ -66,4 +145,15 @@ export function decodePositions(buffer: ArrayBuffer): Float32Array {
     );
   }
   return new Float32Array(buffer);
+}
+
+export function thumbnailUrl(
+  n: number,
+  l: number,
+  m: number,
+  system: string,
+  basis: Basis,
+  size: number,
+): string {
+  return `/api/thumbnail/${n}/${l}/${m}?system=${system}&basis=${basis}&size=${size}`;
 }
