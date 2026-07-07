@@ -8,6 +8,7 @@ const COUNT_CHOICES = [10_000, 50_000, 100_000, 250_000];
 // Later tasks append entries as their views land.
 const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
   { value: "cloud", label: "3D point cloud" },
+  { value: "plane", label: "2D cross-section" },
 ];
 
 export function Controls() {

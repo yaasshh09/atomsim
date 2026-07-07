@@ -1,6 +1,7 @@
 import { CloudView } from "./components/CloudView";
 import { Controls } from "./components/Controls";
 import { InfoPanel } from "./components/InfoPanel";
+import { PlaneView } from "./components/PlaneView";
 import { useAppStore } from "./state/store";
 
 export default function App() {
@@ -8,7 +9,10 @@ export default function App() {
   return (
     <div className="app-grid">
       <InfoPanel />
-      <main className="center-col">{view === "cloud" && <CloudView />}</main>
+      <main className="center-col">
+        {view === "cloud" && <CloudView />}
+        {view === "plane" && <PlaneView />}
+      </main>
       <Controls />
     </div>
   );

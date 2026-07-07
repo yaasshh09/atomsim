@@ -228,3 +228,67 @@ button.primary:disabled {
   border-radius: 5px;
   border: 1px solid var(--edge);
 }
+
+.view-wrap {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.view-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.plot-title {
+  font-size: 0.95rem;
+}
+
+.plane-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.plane-canvas {
+  width: 100%;
+  max-width: min(100%, 70vh);
+  aspect-ratio: 1;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  background: #000;
+}
+
+.caption {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.seg {
+  margin-left: auto;
+  display: flex;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.seg button {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.seg .seg-on {
+  background: var(--edge);
+  color: var(--text);
+}
