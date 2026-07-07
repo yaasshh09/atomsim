@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampState, isValidState, stateLabel } from "./quantum";
+import { clampState, isValidState, realOrbitalLabel, stateLabel } from "./quantum";
 
 describe("isValidState", () => {
   it("accepts physical states", () => {
@@ -33,5 +33,19 @@ describe("stateLabel", () => {
     expect(stateLabel(1, 0, 0)).toBe("1s (m = 0)");
     expect(stateLabel(2, 1, 0)).toBe("2p (m = 0)");
     expect(stateLabel(3, 2, -1)).toBe("3d (m = -1)");
+  });
+});
+
+describe("realOrbitalLabel", () => {
+  it("mirrors atomsim.analytic.angular.real_orbital_label", () => {
+    expect(realOrbitalLabel(0, 0)).toBe("s");
+    expect(realOrbitalLabel(1, 0)).toBe("p_z");
+    expect(realOrbitalLabel(1, 1)).toBe("p_x");
+    expect(realOrbitalLabel(1, -1)).toBe("p_y");
+    expect(realOrbitalLabel(2, -2)).toBe("d_xy");
+    expect(realOrbitalLabel(3, 3)).toBe("f_x(x2-3y2)");
+    expect(realOrbitalLabel(4, 0)).toBe("g(m=0)");
+    expect(realOrbitalLabel(4, 2)).toBe("g(m=+2, cos)");
+    expect(realOrbitalLabel(4, -2)).toBe("g(m=-2, sin)");
   });
 });
