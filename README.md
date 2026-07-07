@@ -80,6 +80,12 @@ Your browser opens the app: pick a state (n, l, m), press **Sample**, and explor
 a Monte-Carlo point cloud of |ψ|² — click any provenance badge to see the method,
 assumptions, and error scale behind the number it labels.
 
+Every app state is addressable by URL (deep links — also the demo-script hooks
+for the Phase 2 guided tour), e.g.:
+
+    http://127.0.0.1:8000/?n=3&l=1&m=-1&system=mu-h&view=plane&plane=psi
+    http://127.0.0.1:8000/?n=2&l=1&m=1&color=phase&nucleus=true-scale
+
 To run the validation suites:
 
     pytest          # physics + server (from the repo root)
