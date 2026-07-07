@@ -37,6 +37,7 @@ from atomsim.server.schemas import (
     QuantityModel,
     SystemModel,
 )
+from atomsim.server.thumbnails import render_thumbnail
 from atomsim.spectra import compare_lines, load_reference, transition_lines
 from atomsim.systems import get_system, list_systems
 
@@ -379,6 +380,21 @@ def create_app() -> FastAPI:
             comparison=comparison,
             reference_citation=citation,
             tolerance_relative=tol,
+        )
+
+    @app.get("/api/thumbnail/{n}/{l}/{m}")
+    def thumbnail(n: int, l: int, m: int, system: str = "h",
+                  basis: str = "complex", size: int = 120) -> Response:
+        _validate_state(n, l, m)
+        _resolve_system(system)
+        if basis not in ("complex", "real"):
+            raise HTTPException(status_code=422, detail=f"unknown basis {basis!r}")
+        if not 32 <= size <= 256:
+            raise HTTPException(status_code=422, detail="size must be in [32, 256]")
+        png = render_thumbnail(n, l, m, system, basis, size)
+        return Response(
+            content=png, media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
         )
 
     @app.post("/api/jobs/sample", response_model=JobModel)
