@@ -38,6 +38,9 @@ export interface SystemInfo {
   mu_ratio: Quantity;
   m_over_m_nucleus: number;
   description: string;
+  /** null = honestly absent (point lepton / unidentified nucleus), never zero */
+  nuclear_radius: Quantity | null;
+  nuclear_radius_fm: Quantity | null;
 }
 
 export interface LevelInfo {

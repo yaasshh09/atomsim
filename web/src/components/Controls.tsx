@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import type { NucleusMode } from "../lib/nucleus";
+import { NUCLEUS_MODES } from "../lib/nucleus";
 import { useAppStore } from "../state/store";
 import type { ColorMode, ViewMode } from "../state/store";
 import { ShowPhysics } from "./ShowPhysics";
@@ -18,9 +20,9 @@ const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
 export function Controls() {
   const {
     n, l, m, count, status, progress, error, system, systems, basis, view,
-    colorMode, fineStructure,
+    colorMode, fineStructure, nucleusMode,
     setQuantumNumbers, setCount, sample, setSystem, setBasis, setView,
-    setColorMode, setFineStructure, loadSystems,
+    setColorMode, setFineStructure, setNucleusMode, loadSystems,
   } = useAppStore();
   useEffect(() => {
     if (systems.length === 0) void loadSystems();
@@ -128,6 +130,19 @@ export function Controls() {
           <option value="phase" disabled={basis === "real"}>
             phase as hue (complex only)
           </option>
+        </select>
+      </label>
+      <label>
+        nucleus
+        <select
+          value={nucleusMode}
+          onChange={(e) => setNucleusMode(e.target.value as NucleusMode)}
+        >
+          {NUCLEUS_MODES.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
       </label>
       <button

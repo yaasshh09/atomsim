@@ -62,6 +62,22 @@ export function InfoPanel() {
           <dd>
             {stateInfo.radial_nodes} radial · {stateInfo.angular_nodes} angular
           </dd>
+          {sys?.nuclear_radius_fm ? (
+            <>
+              <dt>
+                Nucleus r<sub>rms</sub>{" "}
+                <Badge provenance={sys.nuclear_radius_fm.provenance} />
+              </dt>
+              <dd>{sys.nuclear_radius_fm.value.toFixed(3)} fm</dd>
+            </>
+          ) : (
+            sys && (
+              <>
+                <dt>Nucleus</dt>
+                <dd>point lepton — no measured size</dd>
+              </>
+            )
+          )}
           {meta && (
             <>
               <dt>

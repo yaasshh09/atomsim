@@ -214,6 +214,13 @@ button.primary:disabled {
   align-items: center;
 }
 
+.nucleus-caption {
+  color: var(--muted, #8fa3ad);
+  font-size: 0.72rem;
+  max-width: 34ch;
+  line-height: 1.25;
+}
+
 .legend {
   display: flex;
   align-items: center;

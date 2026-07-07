@@ -10,6 +10,7 @@ import type {
   StateResponse,
   SystemInfo,
 } from "../api/types";
+import type { NucleusMode } from "../lib/nucleus";
 import { clampState } from "../lib/quantum";
 
 export type SampleStatus = "idle" | "sampling" | "ready" | "error";
@@ -27,6 +28,7 @@ interface AppState {
   view: ViewMode;
   colorMode: ColorMode;
   fineStructure: boolean;
+  nucleusMode: NucleusMode;
   count: number;
   systems: SystemInfo[];
   stateInfo: StateResponse | null;
@@ -51,6 +53,7 @@ interface AppState {
   setView: (view: ViewMode) => void;
   setColorMode: (colorMode: ColorMode) => void;
   setFineStructure: (fineStructure: boolean) => void;
+  setNucleusMode: (nucleusMode: NucleusMode) => void;
   setCount: (count: number) => void;
   setPlaneQuantity: (planeQuantity: PlaneQuantity) => void;
   setFps: (fps: number) => void;
@@ -90,6 +93,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   view: "cloud",
   colorMode: "solid",
   fineStructure: false,
+  nucleusMode: "marker",
   count: 100_000,
   systems: [],
   fps: 0,
@@ -107,6 +111,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setColorMode: (colorMode) => set({ colorMode }),
   setFineStructure: (fineStructure) =>
     set({ fineStructure, stateInfo: null, levels: null, spectrum: null }),
+  // pure render choice: nothing physical to invalidate
+  setNucleusMode: (nucleusMode) => set({ nucleusMode }),
   setCount: (count) => set({ count }),
   setPlaneQuantity: (planeQuantity) =>
     set({ planeQuantity, plane: null, planeStatus: "idle", planeProgress: 0 }),

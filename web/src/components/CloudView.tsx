@@ -3,7 +3,8 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import type * as THREE from "three";
 import { buildCloudColors } from "../lib/cloudColors";
-import { RENDER_LIBERTIES } from "../lib/liberties";
+import { NUCLEUS_MARKER_LIBERTY, RENDER_LIBERTIES } from "../lib/liberties";
+import { nucleusCaption, nucleusSphere } from "../lib/nucleus";
 import { useAppStore } from "../state/store";
 import { Badge } from "./Badge";
 import { Legend } from "./Legend";
@@ -39,7 +40,8 @@ function FpsMeter() {
 }
 
 export function CloudView() {
-  const { n, positions, density, phase, colorMode, stateInfo } = useAppStore();
+  const { n, positions, density, phase, colorMode, stateInfo, nucleusMode } =
+    useAppStore();
   const colors = useMemo(
     () => buildCloudColors(colorMode, density, phase),
     [colorMode, density, phase],
@@ -47,6 +49,13 @@ export function CloudView() {
   const distance = stateInfo
     ? Math.max(6 * stateInfo.mean_radius.value, 1e-3)
     : 5 * n * n + 3;
+  const sysInfo = stateInfo?.system ?? null;
+  const nucleus = nucleusSphere(
+    nucleusMode,
+    sysInfo?.nuclear_radius?.value ?? null,
+    distance,
+  );
+  const caption = nucleusCaption(nucleusMode, sysInfo, nucleus);
   return (
     <div className="canvas-wrap">
       <Canvas camera={{ fov: 50 }}>
@@ -60,11 +69,21 @@ export function CloudView() {
             colors={colors}
           />
         )}
+        {nucleus && (
+          <mesh>
+            <sphereGeometry args={[nucleus.radius, 32, 16]} />
+            <meshBasicMaterial
+              color={nucleus.kind === "marker" ? "#ffb86b" : "#ffd9a0"}
+            />
+          </mesh>
+        )}
         <OrbitControls />
       </Canvas>
       {!positions && <p className="hint">Choose a state and press Sample</p>}
       <div className="canvas-overlay">
         <Badge provenance={RENDER_LIBERTIES} />
+        {nucleus?.kind === "marker" && <Badge provenance={NUCLEUS_MARKER_LIBERTY} />}
+        {caption && <span className="nucleus-caption">{caption}</span>}
         <Legend mode={colorMode} />
       </div>
     </div>

@@ -1,4 +1,5 @@
 import type { Provenance } from "../api/types";
+import { MARKER_DIVISOR } from "./nucleus";
 
 /** The frontend is the authority on its own rendering choices — disclosed, never hidden. */
 export const RENDER_LIBERTIES: Provenance = {
@@ -11,6 +12,18 @@ export const RENDER_LIBERTIES: Provenance = {
   ],
   error_estimate: null,
   refinement: "positions, density and phase channels come from the engine unmodified",
+};
+
+export const NUCLEUS_MARKER_LIBERTY: Provenance = {
+  fidelity: "visual_liberty",
+  method: "nucleus drawn as a fixed-size marker sphere at the origin",
+  assumptions: [
+    `marker radius = camera distance / ${MARKER_DIVISOR} — presentation, not physics`,
+    "true position (the origin) and the r_rms readout are exact",
+    "switch to 'true scale' to see the honest, subpixel size",
+  ],
+  error_estimate: null,
+  refinement: "the magnification factor is stated live in the canvas caption",
 };
 
 export const THUMBNAIL_LIBERTY: Provenance = {

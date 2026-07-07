@@ -75,4 +75,14 @@ describe("store transitions", () => {
     expect(s.plane).toBeNull();
     expect(s.positions).not.toBeNull();
   });
+
+  it("nucleus mode is a pure render choice: defaults to marker, clears nothing", () => {
+    expect(useAppStore.getState().nucleusMode).toBe("marker");
+    pretendLoaded();
+    useAppStore.getState().setNucleusMode("true-scale");
+    const s = useAppStore.getState();
+    expect(s.nucleusMode).toBe("true-scale");
+    expect(s.positions).not.toBeNull();
+    expect(s.stateInfo).not.toBeNull();
+  });
 });
