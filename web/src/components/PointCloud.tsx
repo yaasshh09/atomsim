@@ -23,7 +23,10 @@ export function PointCloud({ positions, pointSize, colors }: Props) {
     <points geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
       {/* VISUAL LIBERTY: point size, colour mapping, glow are presentational choices,
           disclosed via the RENDER_LIBERTIES badge in the canvas overlay. */}
+      {/* key remounts the material when vertexColors flips: three.js only reads
+          the flag at shader compile time, so an in-place prop update is ignored. */}
       <pointsMaterial
+        key={useVertexColors ? "vertex-colors" : "solid"}
         size={pointSize}
         sizeAttenuation
         color={useVertexColors ? "#ffffff" : "#7cffb2"}
