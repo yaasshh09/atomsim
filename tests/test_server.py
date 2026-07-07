@@ -306,3 +306,58 @@ def test_state_fine_structure_shift_ev(client):
     assert len(body["levels"]) == 2
     for lev in body["levels"]:
         assert lev["shift_ev"]["unit"] == "eV"
+
+
+def test_plane_job_end_to_end(client):
+    r = client.post(
+        "/api/jobs/plane",
+        json={"n": 2, "l": 1, "m": 0, "resolution": 64},
+    )
+    assert r.status_code == 200
+    job_id = r.json()["id"]
+    assert _wait_done(client, job_id)["status"] == "done"
+
+    meta = client.get(f"/api/jobs/{job_id}/meta").json()
+    assert meta["kind"] == "plane"
+    assert meta["resolution"] == 64
+    assert meta["quantity"] == "density"
+    assert meta["unit"] == "bohr^-3"
+    assert meta["half_extent"] == pytest.approx(10.0 / 0.9994557, rel=1e-4)
+    assert meta["provenance"]["fidelity"] == "exact"
+
+    raw = client.get(f"/api/jobs/{job_id}/data").content
+    assert len(raw) == 64 * 64 * 4
+    values = np.frombuffer(raw, dtype=np.float32).reshape(64, 64)
+
+    # deterministic: must equal a direct engine computation at the system's mu
+    from atomsim.plane import plane_grid
+    from atomsim.systems import get_system
+
+    mu = get_system("h").mu_ratio.value
+    expected = plane_grid(2, 1, 0, mu_ratio=mu, resolution=64).values.astype(np.float32)
+    assert np.array_equal(values, expected)
+
+    # plane jobs have exactly one channel
+    assert client.get(f"/api/jobs/{job_id}/data?channel=density").status_code == 422
+
+
+def test_plane_job_psi_quantity_and_validation(client):
+    r = client.post(
+        "/api/jobs/plane",
+        json={"n": 2, "l": 1, "m": 0, "quantity": "psi", "resolution": 32},
+    )
+    job_id = r.json()["id"]
+    assert _wait_done(client, job_id)["status"] == "done"
+    meta = client.get(f"/api/jobs/{job_id}/meta").json()
+    assert meta["quantity"] == "psi"
+    assert meta["unit"] == "bohr^-3/2"
+
+    assert client.post(
+        "/api/jobs/plane", json={"n": 1, "l": 0, "m": 0, "resolution": 4096}
+    ).status_code == 422
+    assert client.post(
+        "/api/jobs/plane", json={"n": 1, "l": 0, "m": 0, "quantity": "vibes"}
+    ).status_code == 422
+    assert client.post(
+        "/api/jobs/plane", json={"n": 1, "l": 1, "m": 0}
+    ).status_code == 422

@@ -24,6 +24,7 @@ from atomsim.analytic.hydrogen import (
 )
 from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
 from atomsim.constants import BOHR_RADIUS_PM, HARTREE_EV
+from atomsim.plane import PlaneGrid, plane_grid
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
 from atomsim.server.jobs import Job, JobStatus, JobStore
@@ -151,6 +152,34 @@ class SampleJobResult:
 
     cloud: SampleCloud
     psi: WavefunctionValues
+
+
+class PlaneRequest(BaseModel):
+    n: int
+    l: int
+    m: int
+    quantity: Literal["density", "psi"] = "density"
+    basis: Literal["complex", "real"] = "complex"
+    system: str = "h"
+    resolution: int = PydanticField(default=512, ge=32, le=1024)
+
+
+class PlaneMetaModel(BaseModel):
+    kind: Literal["plane"] = "plane"
+    resolution: int
+    dtype: str
+    layout: str
+    quantity: str
+    unit: str
+    label: str
+    half_extent: float
+    axis_unit: str
+    n: int
+    l: int
+    m: int
+    basis: str
+    system: str
+    provenance: ProvenanceModel
 
 
 def _validate_state(n: int, l: int, m: int) -> None:
@@ -376,6 +405,24 @@ def create_app() -> FastAPI:
         loop.run_in_executor(None, jobs.run, job.id, work)
         return _job_model(job)
 
+    @app.post("/api/jobs/plane", response_model=JobModel)
+    async def create_plane_job(req: PlaneRequest) -> JobModel:
+        _validate_state(req.n, req.l, req.m)
+        sys_ = _resolve_system(req.system)
+        job = jobs.create()
+        app.state.job_systems[job.id] = req.system
+
+        def work(progress):
+            return plane_grid(
+                req.n, req.l, req.m, quantity=req.quantity, basis=req.basis,
+                Z=sys_.Z, mu_ratio=sys_.mu_ratio.value,
+                resolution=req.resolution, progress=progress,
+            )
+
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, jobs.run, job.id, work)
+        return _job_model(job)
+
     @app.get("/api/jobs/{job_id}", response_model=JobModel)
     def job_status(job_id: str) -> JobModel:
         job = jobs.get(job_id)
@@ -410,23 +457,42 @@ def create_app() -> FastAPI:
             channels=channels,
         )
 
-    @app.get("/api/jobs/{job_id}/meta", response_model=SampleMetaModel)
-    def job_meta(job_id: str) -> SampleMetaModel:
+    def _plane_meta(pg: PlaneGrid, system_key: str) -> PlaneMetaModel:
+        return PlaneMetaModel(
+            resolution=pg.values.shape[0],
+            dtype="float32",
+            layout="row-major float32; row i = z=axis[i] ascending, col j = x=axis[j]",
+            quantity=pg.quantity, unit=pg.unit, label=pg.label,
+            half_extent=float(pg.axis[-1]), axis_unit="bohr",
+            n=pg.n, l=pg.l, m=pg.m, basis=pg.basis, system=system_key,
+            provenance=ProvenanceModel.from_provenance(pg.provenance),
+        )
+
+    @app.get("/api/jobs/{job_id}/meta", response_model=SampleMetaModel | PlaneMetaModel)
+    def job_meta(job_id: str) -> SampleMetaModel | PlaneMetaModel:
         res = _finished_result(jobs, job_id)
-        return _sample_meta(res, app.state.job_systems.get(job_id, "h"))
+        system_key = app.state.job_systems.get(job_id, "h")
+        if isinstance(res, PlaneGrid):
+            return _plane_meta(res, system_key)
+        return _sample_meta(res, system_key)
 
     @app.get("/api/jobs/{job_id}/data")
     def job_data(job_id: str, channel: str | None = None) -> Response:
         res = _finished_result(jobs, job_id)
-        name = channel or "positions"
-        if name == "positions":
+        if isinstance(res, PlaneGrid):
+            if channel is not None:
+                raise HTTPException(
+                    status_code=422, detail="plane jobs have a single channel"
+                )
+            payload = res.values.astype(np.float32)
+        elif (channel or "positions") == "positions":
             payload = res.cloud.positions
-        elif name == "density":
+        elif channel == "density":
             payload = (np.abs(res.psi.values) ** 2).astype(np.float32)
-        elif name == "phase" and res.cloud.basis == "complex":
+        elif channel == "phase" and res.cloud.basis == "complex":
             payload = np.angle(res.psi.values).astype(np.float32)
         else:
-            raise HTTPException(status_code=422, detail=f"no channel {name!r} on this job")
+            raise HTTPException(status_code=422, detail=f"no channel {channel!r} on this job")
         return Response(
             content=payload.tobytes(), media_type="application/octet-stream"
         )
