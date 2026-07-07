@@ -257,3 +257,52 @@ def test_sample_channels_real_basis_has_no_phase(client):
     assert [c["name"] for c in meta["channels"]] == ["positions", "density"]
     assert client.get(f"/api/jobs/{job_id}/data?channel=phase").status_code == 422
     assert client.get(f"/api/jobs/{job_id}/data?channel=vibes").status_code == 422
+
+
+def test_levels_endpoint_gross(client):
+    body = client.get("/api/levels?n_max=3").json()
+    assert body["n_max"] == 3 and body["fine"] is None
+    assert [g["n"] for g in body["gross"]] == [1, 2, 3]
+    assert [g["degeneracy"] for g in body["gross"]] == [2, 8, 18]
+    e1 = body["gross"][0]["energy"]
+    assert e1["unit"] == "hartree"
+    assert e1["value"] == pytest.approx(-0.4997278, rel=1e-5)  # reduced-mass H
+    assert body["gross"][0]["energy_ev"]["unit"] == "eV"
+
+
+def test_levels_endpoint_fine_structure(client):
+    body = client.get("/api/levels?n_max=2&fine_structure=true").json()
+    fine = body["fine"]
+    assert [(f["n"], f["l"], f["j"]) for f in fine] == [
+        (1, 0, 0.5), (2, 0, 0.5), (2, 1, 0.5), (2, 1, 1.5),
+    ]
+    for f in fine:
+        assert f["shift"]["provenance"]["fidelity"] == "approximation"
+        assert f["shift_ev"]["unit"] == "eV"
+    # 2p_1/2 lies below 2p_3/2
+    assert fine[2]["energy"]["value"] < fine[3]["energy"]["value"]
+
+
+def test_levels_endpoint_validation(client):
+    assert client.get("/api/levels?n_max=0").status_code == 422
+    assert client.get("/api/levels?n_max=11").status_code == 422
+    assert client.get("/api/levels?system=unobtainium").status_code == 422
+
+
+def test_state_readouts(client):
+    body = client.get("/api/state/3/2/1").json()
+    assert body["angular_momentum"]["value"] == pytest.approx(6.0**0.5)
+    assert body["angular_momentum"]["unit"] == "hbar"
+    assert body["radial_nodes"] == 0
+    assert body["angular_nodes"] == 2
+    r_bohr = body["mean_radius"]["value"]
+    r_pm = body["mean_radius_pm"]["value"]
+    assert body["mean_radius_pm"]["unit"] == "pm"
+    assert r_pm == pytest.approx(r_bohr * 52.9177, rel=1e-4)
+
+
+def test_state_fine_structure_shift_ev(client):
+    body = client.get("/api/state/2/1/0?fine_structure=true").json()
+    assert len(body["levels"]) == 2
+    for lev in body["levels"]:
+        assert lev["shift_ev"]["unit"] == "eV"

@@ -142,3 +142,16 @@ def test_mean_radius_returns_exact_quantity():
     assert q.unit == "bohr"
     assert q.provenance.fidelity is Fidelity.EXACT
     assert "3" in q.provenance.method  # states the closed-form formula
+
+
+def test_angular_momentum_magnitude():
+    from atomsim.analytic.hydrogen import angular_momentum_magnitude
+
+    q0 = angular_momentum_magnitude(0)
+    assert q0.value == 0.0
+    assert q0.unit == "hbar"
+    assert q0.provenance.fidelity.value == "exact"
+    q2 = angular_momentum_magnitude(2)
+    assert q2.value == pytest.approx(6.0**0.5)
+    with pytest.raises(ValueError):
+        angular_momentum_magnitude(-1)

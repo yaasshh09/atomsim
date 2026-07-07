@@ -100,3 +100,19 @@ def mean_radius(n: int, l: int, Z: int = 1, mu_ratio: float = 1.0) -> Quantity:
             assumptions=_EXACT_ASSUMPTIONS,
         ),
     )
+
+
+def angular_momentum_magnitude(l: int) -> Quantity:
+    """|L| = sqrt(l(l+1)) hbar, the exact magnitude from the L^2 eigenvalue."""
+    if l < 0:
+        raise ValueError(f"l must be >= 0, got {l}")
+    return Quantity(
+        value=float(np.sqrt(l * (l + 1))),
+        unit="hbar",
+        label=f"|L| (l={l})",
+        provenance=Provenance(
+            fidelity=Fidelity.EXACT,
+            method="sqrt(l(l+1)) hbar from the L^2 eigenvalue of the (n,l,m) eigenstate",
+            assumptions=_EXACT_ASSUMPTIONS,
+        ),
+    )

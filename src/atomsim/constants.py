@@ -18,6 +18,9 @@ HARTREE_EV: float = _sc.physical_constants["Hartree energy in eV"][0]
 # universes must derive alpha via FundamentalConstants.alpha, never this.
 ALPHA: float = _sc.fine_structure
 
+# Real-universe display anchor ONLY (same caveat): pm-per-bohr for readouts.
+BOHR_RADIUS_PM: float = _sc.physical_constants["Bohr radius"][0] * 1e12
+
 
 @dataclass(frozen=True)
 class FundamentalConstants:

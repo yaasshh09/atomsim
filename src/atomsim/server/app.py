@@ -16,13 +16,14 @@ from pydantic import Field as PydanticField
 import atomsim
 from atomsim.analytic.fine_structure import fine_structure_shift, level_energy
 from atomsim.analytic.hydrogen import (
+    angular_momentum_magnitude,
     energy,
     mean_radius,
     radial_wavefunction,
     validate_quantum_numbers,
 )
 from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
-from atomsim.constants import HARTREE_EV
+from atomsim.constants import BOHR_RADIUS_PM, HARTREE_EV
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
 from atomsim.server.jobs import Job, JobStatus, JobStore
@@ -47,6 +48,32 @@ class LevelModel(BaseModel):
     energy: QuantityModel
     energy_ev: QuantityModel
     shift: QuantityModel
+    shift_ev: QuantityModel
+
+
+class GrossLevelModel(BaseModel):
+    n: int
+    degeneracy: int
+    energy: QuantityModel
+    energy_ev: QuantityModel
+
+
+class FineLevelModel(BaseModel):
+    n: int
+    l: int
+    j: float
+    energy: QuantityModel
+    energy_ev: QuantityModel
+    shift: QuantityModel
+    shift_ev: QuantityModel
+
+
+class LevelsResponse(BaseModel):
+    system: SystemModel
+    n_max: int
+    fine_structure: bool
+    gross: list[GrossLevelModel]
+    fine: list[FineLevelModel] | None
 
 
 class StateResponse(BaseModel):
@@ -57,6 +84,10 @@ class StateResponse(BaseModel):
     energy: QuantityModel
     energy_ev: QuantityModel
     mean_radius: QuantityModel
+    mean_radius_pm: QuantityModel
+    angular_momentum: QuantityModel
+    radial_nodes: int
+    angular_nodes: int
     levels: list[LevelModel]
 
 
@@ -143,6 +174,18 @@ def _to_ev(q: Quantity) -> Quantity:
     )
 
 
+def _to_pm(q: Quantity) -> Quantity:
+    return Quantity(
+        value=q.value * BOHR_RADIUS_PM,
+        unit="pm",
+        label=q.label + " [pm]",
+        provenance=dataclasses.replace(
+            q.provenance,
+            method=q.provenance.method + "; converted to pm via CODATA Bohr radius",
+        ),
+    )
+
+
 def _job_model(job: Job) -> JobModel:
     return JobModel(id=job.id, status=job.status.value, progress=job.progress, error=job.error)
 
@@ -201,17 +244,60 @@ def create_app() -> FastAPI:
                         energy=QuantityModel.from_quantity(le),
                         energy_ev=QuantityModel.from_quantity(_to_ev(le)),
                         shift=QuantityModel.from_quantity(sh),
+                        shift_ev=QuantityModel.from_quantity(_to_ev(sh)),
                     )
                 )
+        mr = mean_radius(n, l, Z=sys_.Z, mu_ratio=mu)
         return StateResponse(
             n=n, l=l, m=m,
             system=SystemModel.from_system(sys_),
             energy=QuantityModel.from_quantity(e),
             energy_ev=QuantityModel.from_quantity(_to_ev(e)),
-            mean_radius=QuantityModel.from_quantity(
-                mean_radius(n, l, Z=sys_.Z, mu_ratio=mu)
-            ),
+            mean_radius=QuantityModel.from_quantity(mr),
+            mean_radius_pm=QuantityModel.from_quantity(_to_pm(mr)),
+            angular_momentum=QuantityModel.from_quantity(angular_momentum_magnitude(l)),
+            radial_nodes=n - l - 1,
+            angular_nodes=l,
             levels=levels,
+        )
+
+    @app.get("/api/levels", response_model=LevelsResponse)
+    def levels_endpoint(system: str = "h", n_max: int = 6,
+                        fine_structure: bool = False) -> LevelsResponse:
+        if not 1 <= n_max <= 10:
+            raise HTTPException(status_code=422, detail="n_max must be in [1, 10]")
+        sys_ = _resolve_system(system)
+        mu = sys_.mu_ratio.value
+        gross = []
+        for n in range(1, n_max + 1):
+            e = energy(n, Z=sys_.Z, mu_ratio=mu)
+            gross.append(GrossLevelModel(
+                n=n, degeneracy=2 * n * n,
+                energy=QuantityModel.from_quantity(e),
+                energy_ev=QuantityModel.from_quantity(_to_ev(e)),
+            ))
+        fine = None
+        if fine_structure:
+            fine = []
+            for n in range(1, n_max + 1):
+                for l in range(n):
+                    for j in ([0.5] if l == 0 else [l - 0.5, l + 0.5]):
+                        le = level_energy(
+                            n, l, j, Z=sys_.Z, mu_ratio=mu, m_over_M=sys_.m_over_M
+                        )
+                        sh = fine_structure_shift(
+                            n, l, j, Z=sys_.Z, mu_ratio=mu, m_over_M=sys_.m_over_M
+                        )
+                        fine.append(FineLevelModel(
+                            n=n, l=l, j=j,
+                            energy=QuantityModel.from_quantity(le),
+                            energy_ev=QuantityModel.from_quantity(_to_ev(le)),
+                            shift=QuantityModel.from_quantity(sh),
+                            shift_ev=QuantityModel.from_quantity(_to_ev(sh)),
+                        ))
+        return LevelsResponse(
+            system=SystemModel.from_system(sys_), n_max=n_max,
+            fine_structure=fine_structure, gross=gross, fine=fine,
         )
 
     @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)
