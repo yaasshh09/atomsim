@@ -45,6 +45,22 @@ describe("parseAppUrl", () => {
       colorMode: "density",
     });
   });
+
+  it("parses lab alpha and Z for the what-if view", () => {
+    expect(parseAppUrl("?view=whatif&alpha=0.02&z=3")).toEqual({
+      view: "whatif",
+      labAlpha: 0.02,
+      labZ: 3,
+    });
+  });
+
+  it("clamps alpha to (0, 0.5] and Z to [1, 10], dropping junk", () => {
+    expect(parseAppUrl("?alpha=0.9")).toEqual({ labAlpha: 0.5 });
+    expect(parseAppUrl("?alpha=0")).toEqual({});
+    expect(parseAppUrl("?alpha=nope")).toEqual({});
+    expect(parseAppUrl("?z=0")).toEqual({ labZ: 1 });
+    expect(parseAppUrl("?z=99")).toEqual({ labZ: 10 });
+  });
 });
 
 describe("serializeAppUrl", () => {
@@ -65,11 +81,13 @@ describe("serializeAppUrl", () => {
       m: 2,
       system: "he+",
       basis: "real" as const,
-      view: "levels" as const,
+      view: "whatif" as const,
       colorMode: "density" as const,
       fineStructure: true,
       nucleusMode: "hidden" as const,
       planeQuantity: "psi" as const,
+      labAlpha: 0.02,
+      labZ: 3,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
     expect({ ...URL_DEFAULTS, ...parsed }).toEqual(state);

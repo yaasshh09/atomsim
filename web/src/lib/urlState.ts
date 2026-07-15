@@ -5,6 +5,7 @@ import type { Basis, PlaneQuantity } from "../api/client";
 import type { ColorMode, ViewMode } from "../state/store";
 import type { NucleusMode } from "./nucleus";
 import { clampState } from "./quantum";
+import { ALPHA_MAX, REAL_ALPHA } from "./whatif";
 
 export interface UrlState {
   n: number;
@@ -17,6 +18,8 @@ export interface UrlState {
   fineStructure: boolean;
   nucleusMode: NucleusMode;
   planeQuantity: PlaneQuantity;
+  labAlpha: number;
+  labZ: number;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -30,12 +33,14 @@ export const URL_DEFAULTS: UrlState = {
   fineStructure: false,
   nucleusMode: "marker",
   planeQuantity: "density",
+  labAlpha: REAL_ALPHA,
+  labZ: 1,
 };
 
 // mirrors the n select in Controls (N_CHOICES max)
 const N_MAX_UI = 6;
 
-const VIEWS: ViewMode[] = ["cloud", "plane", "radial", "levels", "spectrum"];
+const VIEWS: ViewMode[] = ["cloud", "plane", "radial", "levels", "spectrum", "whatif"];
 const COLORS: ColorMode[] = ["solid", "density", "phase"];
 const BASES: Basis[] = ["complex", "real"];
 const NUCLEUS: NucleusMode[] = ["hidden", "true-scale", "marker"];
@@ -49,6 +54,12 @@ function pickEnum<T extends string>(raw: string | null, allowed: T[]): T | undef
 function pickInt(raw: string | null): number | undefined {
   if (raw === null || !/^-?\d+$/.test(raw)) return undefined;
   return Number(raw);
+}
+
+function pickFloat(raw: string | null): number | undefined {
+  if (raw === null || !/^-?\d*\.?\d+(e-?\d+)?$/i.test(raw)) return undefined;
+  const v = Number(raw);
+  return Number.isFinite(v) ? v : undefined;
 }
 
 /** Validated partial state from a query string; invalid params are dropped. */
@@ -90,6 +101,11 @@ export function parseAppUrl(search: string): Partial<UrlState> {
   if (fs === "1" || fs === "true") out.fineStructure = true;
   else if (fs === "0" || fs === "false") out.fineStructure = false;
 
+  const alpha = pickFloat(q.get("alpha"));
+  if (alpha !== undefined && alpha > 0) out.labAlpha = Math.min(alpha, ALPHA_MAX);
+  const z = pickInt(q.get("z"));
+  if (z !== undefined) out.labZ = Math.min(Math.max(z, 1), 10);
+
   return out;
 }
 
@@ -106,6 +122,10 @@ export function serializeAppUrl(state: UrlState): string {
   if (state.fineStructure !== URL_DEFAULTS.fineStructure) q.set("fs", "1");
   if (state.nucleusMode !== URL_DEFAULTS.nucleusMode) q.set("nucleus", state.nucleusMode);
   if (state.planeQuantity !== URL_DEFAULTS.planeQuantity) q.set("plane", state.planeQuantity);
+  if (Math.abs(state.labAlpha - URL_DEFAULTS.labAlpha) > 1e-9) {
+    q.set("alpha", String(state.labAlpha));
+  }
+  if (state.labZ !== URL_DEFAULTS.labZ) q.set("z", String(state.labZ));
   // note: '+' stays percent-encoded (%2B) — a literal '+' in a query string
   // reads back as a space, which would break the he+ round-trip
   const s = q.toString();
