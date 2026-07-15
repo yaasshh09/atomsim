@@ -48,7 +48,7 @@ N_orbits    = ω₀ · t_collapse / π                      # ω₀ = v₀/r0, v
 - Produces:
   - `@dataclass(frozen=True) BohrOrbit: n: int; radius_bohr: Quantity; radius_pm: Quantity` (both `APPROXIMATION`)
   - `@dataclass(frozen=True) ClassicalGhost: n: int; system_key: str; z: int; orbits: tuple[BohrOrbit, ...]; r0_bohr: Quantity; collapse_time_s: Quantity; orbital_period_s: Quantity; orbit_count: Quantity` (last three `COUNTERFACTUAL`)
-  - `classical_ghost(n: int, system: str = "H") -> ClassicalGhost`
+  - `classical_ghost(n: int, system: str = "h") -> ClassicalGhost`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -61,7 +61,7 @@ from atomsim.provenance import Fidelity
 
 
 def test_hydrogen_ground_collapse_time_matches_literature():
-    g = classical_ghost(n=1, system="H")
+    g = classical_ghost(n=1, system="h")
     # Larmor radiative collapse from the Bohr radius ~ 1.56e-11 s (textbook).
     assert g.collapse_time_s.value == pytest.approx(1.556e-11, rel=0.02)
     assert g.collapse_time_s.unit == "s"
@@ -69,13 +69,13 @@ def test_hydrogen_ground_collapse_time_matches_literature():
 
 
 def test_hydrogen_ground_orbit_count_matches_literature():
-    g = classical_ghost(n=1, system="H")
+    g = classical_ghost(n=1, system="h")
     assert g.orbit_count.value == pytest.approx(2.05e5, rel=0.03)
     assert g.orbit_count.provenance.fidelity is Fidelity.COUNTERFACTUAL
 
 
 def test_bohr_radius_scales_as_n_squared_over_z():
-    g = classical_ghost(n=3, system="H")
+    g = classical_ghost(n=3, system="h")
     # orbits cover n'=1..n, current n last; radius_bohr = n'^2 / Z (H: Z=1, mu~1)
     assert tuple(o.n for o in g.orbits) == (1, 2, 3)
     r1 = g.orbits[0].radius_bohr.value
@@ -85,19 +85,19 @@ def test_bohr_radius_scales_as_n_squared_over_z():
 
 
 def test_r0_is_current_n_radius():
-    g = classical_ghost(n=2, system="H")
+    g = classical_ghost(n=2, system="h")
     assert g.r0_bohr.value == pytest.approx(g.orbits[-1].radius_bohr.value, rel=1e-12)
 
 
 def test_higher_z_collapses_faster():
-    h = classical_ghost(n=1, system="H")
-    he = classical_ghost(n=1, system="He+")   # Z=2
+    h = classical_ghost(n=1, system="h")
+    he = classical_ghost(n=1, system="he+")   # Z=2
     assert he.collapse_time_s.value < h.collapse_time_s.value
 
 
 def test_muonic_hydrogen_smaller_and_faster():
-    h = classical_ghost(n=1, system="H")
-    mu = classical_ghost(n=1, system="mu-H")   # reduced mass ~186 m_e
+    h = classical_ghost(n=1, system="h")
+    mu = classical_ghost(n=1, system="mu-h")   # reduced mass ~186 m_e
     assert mu.r0_bohr.value < h.r0_bohr.value
     assert mu.collapse_time_s.value < h.collapse_time_s.value
 ```
@@ -106,7 +106,7 @@ def test_muonic_hydrogen_smaller_and_faster():
 
 Run: `python -m pytest tests/test_classical.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'atomsim.classical'`.
-(First confirm the exact system keys with `python -c "from atomsim.systems import list_systems; print([s.key for s in list_systems()])"` and use the real keys for He⁺ and muonic H in the tests above if they differ from `He+` / `mu-H`.)
+(System keys are lowercase and case-sensitive: `h`, `d`, `t`, `mu-h`, `ps`, `he+`. `get_system` does NOT lowercase input, so use these exact keys.)
 
 - [ ] **Step 3: Implement `classical.py`**
 
@@ -161,7 +161,7 @@ def _bohr_orbit(n: int, a0_sys_m: float, a0_m: float, z: int) -> BohrOrbit:
     )
 
 
-def classical_ghost(n: int, system: str = "H") -> ClassicalGhost:
+def classical_ghost(n: int, system: str = "h") -> ClassicalGhost:
     if n < 1:
         raise ValueError(f"n must be >= 1, got {n}")
     sys = get_system(system)
@@ -239,7 +239,7 @@ git commit -m "Add the classical-ghost engine (Bohr orbits + Larmor collapse)"
 
 ```python
 def test_classical_hydrogen_ground(client):
-    r = client.get("/api/classical?system=H&n=1")
+    r = client.get("/api/classical?system=h&n=1")
     assert r.status_code == 200
     body = r.json()
     assert body["z"] == 1
@@ -249,12 +249,12 @@ def test_classical_hydrogen_ground(client):
 
 
 def test_classical_orbits_cover_1_to_n(client):
-    body = client.get("/api/classical?system=H&n=3").json()
+    body = client.get("/api/classical?system=h&n=3").json()
     assert [o["n"] for o in body["orbits"]] == [1, 2, 3]
 
 
 def test_classical_rejects_n_below_one(client):
-    assert client.get("/api/classical?system=H&n=0").status_code == 422
+    assert client.get("/api/classical?system=h&n=0").status_code == 422
 ```
 (Match `client` fixture usage and the `pytest.approx` import to the existing patterns already in `tests/test_server.py`.)
 
@@ -272,7 +272,7 @@ Add `BohrOrbitModel` and `ClassicalGhostModel` plus a `classical_ghost_to_model(
 Mirror the `/api/constants` route. Sketch:
 ```python
 @app.get("/api/classical", response_model=ClassicalGhostModel)
-def get_classical(system: str = "H", n: int = Query(ge=1)) -> ClassicalGhostModel:
+def get_classical(system: str = "h", n: int = Query(ge=1)) -> ClassicalGhostModel:
     return classical_ghost_to_model(classical_ghost(n=n, system=system))
 ```
 Add imports for `classical_ghost` and the new schema symbols. Use the same `Query(ge=1)` validation style already present in the file (grep `Query(` to match import + usage).
@@ -455,7 +455,7 @@ it("changing n or system clears loaded classical data (no stale ghost)", () => {
 
 it("changing system clears loaded classical data", () => {
   useAppStore.setState({ classicalGhost: { n: 1 } as never, classicalStatus: "ready" });
-  useAppStore.getState().setSystem("He+");
+  useAppStore.getState().setSystem("he+");
   expect(useAppStore.getState().classicalGhost).toBeNull();
 });
 ```
@@ -612,13 +612,13 @@ git commit -m "Add the animated classical ghost overlay to the 3D cloud"
 ## Final: live QA (after Task 6)
 
 Rebuild `web/dist` (`npm run build`), start the server (`atomsim serve --port 8011 --no-browser` via the env python), and verify end-to-end:
-- `GET /api/classical?system=H&n=1` → collapse ≈ 1.556e-11 s, orbit ≈ 2.05e5, correct fidelity tiers.
+- `GET /api/classical?system=h&n=1` → collapse ≈ 1.556e-11 s, orbit ≈ 2.05e5, correct fidelity tiers.
 - Toggle ghost on in CloudView: rings + spiral + animated point appear; clock counts real ps and loops; COUNTERFACTUAL + slow-mo badges show; toggling off removes the overlay.
 - Higher Z / muonic H collapse visibly faster (smaller r0, shorter clock).
 - Deep link `?ghost=1` restores the overlay on load.
 
 ## Notes for the executor
-- Confirm exact system keys first (`He+`, `mu-H` may differ) and use the real keys.
+- System keys are lowercase/case-sensitive: `h`, `d`, `t`, `mu-h`, `ps`, `he+` (get_system does not lowercase). The endpoint may also receive `z{N}` generic-ion keys from app state — reuse the app's existing system resolver (grep the `get_system`/resolver used by `/api/levels` around app.py:259) so `z{N}` works, rather than calling `get_system` blindly.
 - Do NOT add `ghost`/`classicalGhost` to `INVALIDATED`; reset classical data explicitly in `setQuantumNumbers`/`setSystem` only.
 - Radii for drawing are in Bohr (`radius_bohr`), matching the cloud's units; ps/pm are display-only.
 - Never render React every animation frame — drive the point via three.js refs, throttle any HUD clock updates.
