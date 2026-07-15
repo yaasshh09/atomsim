@@ -2,7 +2,7 @@ import pytest
 from scipy import constants as sc
 
 from atomsim.analytic.fine_structure import fine_structure_shift, level_energy, validate_j
-from atomsim.constants import HARTREE_EV
+from atomsim.constants import ALPHA, HARTREE_EV
 from atomsim.provenance import Fidelity
 
 HARTREE_HZ = sc.physical_constants["hartree-hertz relationship"][0]
@@ -68,3 +68,32 @@ def test_validate_j():
         validate_j(0, -0.5)
     with pytest.raises(ValueError):
         fine_structure_shift(2, 1, 2.5)
+
+
+def test_alpha_defaults_to_real_and_stays_approximation():
+    default = fine_structure_shift(2, 1, 1.5)
+    explicit = fine_structure_shift(2, 1, 1.5, alpha=ALPHA)
+    assert default.value == explicit.value
+    assert default.provenance.fidelity is Fidelity.APPROXIMATION
+
+
+def test_altered_alpha_scales_shift_quadratically():
+    base = fine_structure_shift(2, 1, 1.5).value
+    doubled = fine_structure_shift(2, 1, 1.5, alpha=2 * ALPHA).value
+    assert doubled / base == pytest.approx(4.0)
+
+
+def test_altered_alpha_is_counterfactual_and_disclosed():
+    q = fine_structure_shift(2, 1, 1.5, alpha=0.05)
+    assert q.provenance.fidelity is Fidelity.COUNTERFACTUAL
+    assert "altered" in q.provenance.method.lower()
+    assert f"{ALPHA:g}" in q.provenance.method          # real value cited
+    # Pauli-approximation error still quantified under the altered rule
+    assert q.provenance.error_estimate == pytest.approx(
+        abs(q.value) * ((1 * 0.05) ** 2 + 2 * 0.00116)
+    )
+
+
+def test_level_energy_follows_altered_fidelity():
+    assert level_energy(2, 1, 1.5, alpha=0.05).provenance.fidelity is Fidelity.COUNTERFACTUAL
+    assert level_energy(2, 1, 1.5).provenance.fidelity is Fidelity.APPROXIMATION
