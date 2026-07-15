@@ -1,4 +1,5 @@
 import type {
+  ConstantsReport,
   JobInfo,
   JobMeta,
   LevelsResponse,
@@ -56,6 +57,20 @@ export function getLevels(
   const a = alpha === undefined ? "" : `&alpha=${alpha}`;
   return getJson(
     `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}${a}`,
+  );
+}
+
+export interface ConstMultipliers {
+  hbar: number;
+  e: number;
+  m_e: number;
+  eps0: number;
+  c: number;
+}
+
+export function getConstants(m: ConstMultipliers): Promise<ConstantsReport> {
+  return getJson(
+    `/api/constants?hbar=${m.hbar}&e=${m.e}&m_e=${m.m_e}&eps0=${m.eps0}&c=${m.c}`,
   );
 }
 

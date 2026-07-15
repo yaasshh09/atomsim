@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FineLevel, Provenance, Quantity } from "../api/types";
 import {
-  FINE_WARN_FRACTION, REAL_ALPHA, fineErrorFraction, formatAlpha,
-  isAltered, isBeyondValidity, shellSplitting,
+  CONST_MAX, CONST_MIN, FINE_WARN_FRACTION, REAL_ALPHA, fineErrorFraction,
+  formatAlpha, formatRatio, isAlphaValid, isAltered, isBeyondValidity, shellSplitting,
 } from "./whatif";
 
 const prov: Provenance = {
@@ -49,5 +49,32 @@ describe("shellSplitting", () => {
     const fine = [mkFine(2, 1, 1.5, 3e-6, null), mkFine(2, 1, 0.5, -1e-6, null)];
     expect(shellSplitting(fine, 2)).toBeCloseTo(4e-6, 12);
     expect(shellSplitting(fine, 3)).toBe(0);
+  });
+});
+
+describe("formatAlpha beyond the reciprocal regime", () => {
+  it("shows a decimal for α ≥ 0.5 (the reciprocal form is nonsense there)", () => {
+    expect(formatAlpha(0.5)).toBe("0.50");
+    expect(formatAlpha(7.5)).toBe("7.50");
+  });
+});
+
+describe("formatRatio", () => {
+  it("labels unchanged and scaled ratios", () => {
+    expect(formatRatio(1)).toBe("unchanged");
+    expect(formatRatio(2)).toBe("×2.00");
+    expect(formatRatio(0.5)).toBe("×0.50");
+  });
+});
+
+describe("isAlphaValid", () => {
+  it("is true within (0, 0.5], false past it", () => {
+    expect(isAlphaValid(REAL_ALPHA)).toBe(true);
+    expect(isAlphaValid(0.5)).toBe(true);
+    expect(isAlphaValid(0.9)).toBe(false);
+    expect(isAlphaValid(0)).toBe(false);
+  });
+  it("multiplier bounds match the server range", () => {
+    expect([CONST_MIN, CONST_MAX]).toEqual([0.25, 4]);
   });
 });

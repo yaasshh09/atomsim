@@ -96,6 +96,19 @@ export interface LevelsResponse {
   fine: FineLevel[] | null;
 }
 
+export interface DerivedObservable {
+  quantity: Quantity;
+  ratio: number;
+  changed: boolean;
+}
+
+export interface ConstantsReport {
+  alpha: DerivedObservable;
+  bohr_radius_pm: DerivedObservable;
+  hartree_ev: DerivedObservable;
+  altered: boolean;
+}
+
 export interface RadialResponse {
   n: number;
   l: number;

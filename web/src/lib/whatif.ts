@@ -11,9 +11,10 @@ export const ALPHA_MAX = 0.5;
 /** Fine-structure fractional error past which the perturbative model is untrustworthy. */
 export const FINE_WARN_FRACTION = 0.1;
 
-/** Human form of α as a reciprocal, e.g. 0.0073 -> "1/137". */
+/** Human form of α: "1/137" in the reciprocal regime, a decimal once α ≥ 0.5. */
 export function formatAlpha(alpha: number): string {
   if (alpha <= 0) return "0";
+  if (alpha >= 0.5) return alpha.toFixed(2);
   return `1/${Math.round(1 / alpha)}`;
 }
 
@@ -44,4 +45,32 @@ export function shellSplitting(fine: FineLevel[] | null, n: number): number {
   const s = (fine ?? []).filter((f) => f.n === n).map((f) => f.shift_ev.value);
   if (s.length < 2) return 0;
   return Math.max(...s) - Math.min(...s);
+}
+
+/** Raw-constant multiplier bounds — matches the server's [0.25, 4] validation. */
+export const CONST_MIN = 0.25;
+export const CONST_MAX = 4;
+
+/** The five raw constants, in the order shown in the panel. */
+export const CONSTANT_KEYS = ["hbar", "e", "m_e", "eps0", "c"] as const;
+export type ConstantKey = (typeof CONSTANT_KEYS)[number];
+
+/** Display glyphs for the five constants. */
+export const CONSTANT_LABELS: Record<ConstantKey, string> = {
+  hbar: "ℏ",
+  e: "e",
+  m_e: "mₑ",
+  eps0: "ε₀",
+  c: "c",
+};
+
+/** Derived α only yields a physical perturbative diagram when in (0, 0.5] (server bound). */
+export function isAlphaValid(alpha: number): boolean {
+  return alpha > 0 && alpha <= ALPHA_MAX;
+}
+
+/** Human form of an altered/real ratio: "unchanged" at 1, else "×2.00" / "×0.50". */
+export function formatRatio(ratio: number): string {
+  if (Math.abs(ratio - 1) < 1e-9) return "unchanged";
+  return `×${ratio.toFixed(2)}`;
 }
