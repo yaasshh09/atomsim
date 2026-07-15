@@ -2,6 +2,7 @@
 
 import asyncio
 import dataclasses
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -23,7 +24,7 @@ from atomsim.analytic.hydrogen import (
     validate_quantum_numbers,
 )
 from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
-from atomsim.constants import BOHR_RADIUS_PM, HARTREE_EV
+from atomsim.constants import ALPHA, BOHR_RADIUS_PM, HARTREE_EV
 from atomsim.plane import PlaneGrid, plane_grid
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
@@ -39,7 +40,7 @@ from atomsim.server.schemas import (
 )
 from atomsim.server.thumbnails import render_thumbnail
 from atomsim.spectra import compare_lines, load_reference, transition_lines
-from atomsim.systems import get_system, list_systems
+from atomsim.systems import get_system, hydrogen_like, list_systems
 
 WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
 _DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -74,6 +75,7 @@ class LevelsResponse(BaseModel):
     system: SystemModel
     n_max: int
     fine_structure: bool
+    alpha: float
     gross: list[GrossLevelModel]
     fine: list[FineLevelModel] | None
 
@@ -239,7 +241,18 @@ def create_app() -> FastAPI:
         CORSMiddleware, allow_origins=_DEV_ORIGINS, allow_methods=["*"], allow_headers=["*"]
     )
 
+    _Z_KEY = re.compile(r"^z(\d+)$")
+
     def _resolve_system(key: str):
+        zmatch = _Z_KEY.match(key)
+        if zmatch:
+            Z = int(zmatch.group(1))
+            if not 1 <= Z <= 10:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"generic hydrogen-like Z must be in [1, 10], got {Z}",
+                )
+            return hydrogen_like(Z)
         try:
             return get_system(key)
         except KeyError as exc:
@@ -293,11 +306,15 @@ def create_app() -> FastAPI:
 
     @app.get("/api/levels", response_model=LevelsResponse)
     def levels_endpoint(system: str = "h", n_max: int = 6,
-                        fine_structure: bool = False) -> LevelsResponse:
+                        fine_structure: bool = False,
+                        alpha: float | None = None) -> LevelsResponse:
         if not 1 <= n_max <= 10:
             raise HTTPException(status_code=422, detail="n_max must be in [1, 10]")
+        if alpha is not None and not 0.0 < alpha <= 0.5:
+            raise HTTPException(status_code=422, detail="alpha must be in (0, 0.5]")
         sys_ = _resolve_system(system)
         mu = sys_.mu_ratio.value
+        alpha_used = ALPHA if alpha is None else alpha
         gross = []
         for n in range(1, n_max + 1):
             e = energy(n, Z=sys_.Z, mu_ratio=mu)
@@ -313,10 +330,12 @@ def create_app() -> FastAPI:
                 for l in range(n):
                     for j in ([0.5] if l == 0 else [l - 0.5, l + 0.5]):
                         le = level_energy(
-                            n, l, j, Z=sys_.Z, mu_ratio=mu, m_over_M=sys_.m_over_M
+                            n, l, j, Z=sys_.Z, mu_ratio=mu,
+                            m_over_M=sys_.m_over_M, alpha=alpha_used,
                         )
                         sh = fine_structure_shift(
-                            n, l, j, Z=sys_.Z, mu_ratio=mu, m_over_M=sys_.m_over_M
+                            n, l, j, Z=sys_.Z, mu_ratio=mu,
+                            m_over_M=sys_.m_over_M, alpha=alpha_used,
                         )
                         fine.append(FineLevelModel(
                             n=n, l=l, j=j,
@@ -327,7 +346,7 @@ def create_app() -> FastAPI:
                         ))
         return LevelsResponse(
             system=SystemModel.from_system(sys_), n_max=n_max,
-            fine_structure=fine_structure, gross=gross, fine=fine,
+            fine_structure=fine_structure, alpha=alpha_used, gross=gross, fine=fine,
         )
 
     @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)

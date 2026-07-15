@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import atomsim
+from atomsim.constants import ALPHA
 from atomsim.server.app import create_app
 from atomsim.server.jobs import JobStatus
 
@@ -379,3 +380,30 @@ def test_systems_carry_nuclear_radius(client):
     # the embedded system on /api/state carries it too
     state_sys = client.get("/api/state/1/0/0?system=mu-h").json()["system"]
     assert state_sys["nuclear_radius_fm"]["value"] == pytest.approx(0.84075, rel=1e-6)
+
+
+def test_levels_default_alpha_is_real_and_approximation(client):
+    body = client.get("/api/levels?fine_structure=true").json()
+    assert body["alpha"] == pytest.approx(ALPHA)
+    assert body["fine"][0]["shift"]["provenance"]["fidelity"] == "approximation"
+
+
+def test_levels_altered_alpha_is_counterfactual(client):
+    real = client.get("/api/levels?fine_structure=true").json()
+    alt = client.get("/api/levels?fine_structure=true&alpha=0.05").json()
+    assert alt["alpha"] == pytest.approx(0.05)
+    assert alt["fine"][0]["shift"]["provenance"]["fidelity"] == "counterfactual"
+    # bigger alpha -> deeper (more negative) fine shift
+    assert abs(alt["fine"][0]["shift"]["value"]) > abs(real["fine"][0]["shift"]["value"])
+
+
+def test_levels_generic_z_system_resolves(client):
+    body = client.get("/api/levels?system=z3&fine_structure=true").json()
+    assert body["system"]["z"] == 3
+
+
+def test_levels_rejects_bad_alpha_and_z(client):
+    assert client.get("/api/levels?alpha=0").status_code == 422
+    assert client.get("/api/levels?alpha=0.6").status_code == 422
+    assert client.get("/api/levels?system=z0").status_code == 422
+    assert client.get("/api/levels?system=z99").status_code == 422
