@@ -51,9 +51,11 @@ export function getLevels(
   system: string,
   nMax: number,
   fineStructure: boolean,
+  alpha?: number,
 ): Promise<LevelsResponse> {
+  const a = alpha === undefined ? "" : `&alpha=${alpha}`;
   return getJson(
-    `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}`,
+    `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}${a}`,
   );
 }
 

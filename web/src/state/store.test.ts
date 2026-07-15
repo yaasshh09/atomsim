@@ -76,6 +76,28 @@ describe("store transitions", () => {
     expect(s.positions).not.toBeNull();
   });
 
+  it("lab alpha change clears only the what-if data, not main physics", () => {
+    pretendLoaded();
+    useAppStore.setState({ whatif: {} as never, whatifStatus: "ready" });
+    useAppStore.getState().setLabAlpha(0.05);
+    const s = useAppStore.getState();
+    expect(s.labAlpha).toBe(0.05);
+    expect(s.whatif).toBeNull();
+    expect(s.whatifStatus).toBe("idle");
+    expect(s.positions).not.toBeNull();
+    expect(s.levels).not.toBeNull();
+  });
+
+  it("lab Z change clears only the what-if data", () => {
+    pretendLoaded();
+    useAppStore.setState({ whatif: {} as never, whatifStatus: "ready" });
+    useAppStore.getState().setLabZ(3);
+    const s = useAppStore.getState();
+    expect(s.labZ).toBe(3);
+    expect(s.whatif).toBeNull();
+    expect(s.positions).not.toBeNull();
+  });
+
   it("nucleus mode is a pure render choice: defaults to marker, clears nothing", () => {
     expect(useAppStore.getState().nucleusMode).toBe("marker");
     pretendLoaded();

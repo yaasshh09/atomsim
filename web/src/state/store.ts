@@ -12,9 +12,10 @@ import type {
 } from "../api/types";
 import type { NucleusMode } from "../lib/nucleus";
 import { clampState } from "../lib/quantum";
+import { REAL_ALPHA } from "../lib/whatif";
 
 export type SampleStatus = "idle" | "sampling" | "ready" | "error";
-export type ViewMode = "cloud" | "plane" | "radial" | "levels" | "spectrum";
+export type ViewMode = "cloud" | "plane" | "radial" | "levels" | "spectrum" | "whatif";
 export type ColorMode = "solid" | "density" | "phase";
 
 const N_MAX_DIAGRAM = 6;
@@ -47,6 +48,13 @@ interface AppState {
   radial: RadialResponse | null;
   levels: LevelsResponse | null;
   spectrum: SpectrumResponse | null;
+  labAlpha: number;
+  labZ: number;
+  whatif: { real: LevelsResponse; altered: LevelsResponse } | null;
+  whatifStatus: SampleStatus;
+  setLabAlpha: (labAlpha: number) => void;
+  setLabZ: (labZ: number) => void;
+  loadWhatIf: () => Promise<void>;
   setQuantumNumbers: (n: number, l: number, m: number) => void;
   setSystem: (system: string) => void;
   setBasis: (basis: Basis) => void;
@@ -98,6 +106,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   systems: [],
   fps: 0,
   planeQuantity: "density",
+  labAlpha: REAL_ALPHA,
+  labZ: 1,
+  whatif: null,
+  whatifStatus: "idle",
   ...INVALIDATED,
   setQuantumNumbers: (n, l, m) => set({ ...clampState(n, l, m), ...INVALIDATED }),
   setSystem: (system) => set({ system, ...INVALIDATED }),
@@ -117,6 +129,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPlaneQuantity: (planeQuantity) =>
     set({ planeQuantity, plane: null, planeStatus: "idle", planeProgress: 0 }),
   setFps: (fps) => set({ fps }),
+  // lab slice: independent of the main (n,l,m,system) physics — never in INVALIDATED
+  setLabAlpha: (labAlpha) => set({ labAlpha, whatif: null, whatifStatus: "idle" }),
+  setLabZ: (labZ) => set({ labZ, whatif: null, whatifStatus: "idle" }),
+  loadWhatIf: async () => {
+    const { labAlpha, labZ } = get();
+    const sys = `z${labZ}`;
+    set({ whatifStatus: "sampling", error: null });
+    try {
+      const [real, altered] = await Promise.all([
+        client.getLevels(sys, N_MAX_DIAGRAM, true),
+        client.getLevels(sys, N_MAX_DIAGRAM, true, labAlpha),
+      ]);
+      set({ whatif: { real, altered }, whatifStatus: "ready" });
+    } catch (err) {
+      set({
+        whatifStatus: "error",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  },
   loadSystems: async () => {
     set({ systems: (await client.getSystems()).systems });
   },

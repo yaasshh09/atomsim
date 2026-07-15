@@ -91,6 +91,7 @@ export interface LevelsResponse {
   system: SystemInfo;
   n_max: number;
   fine_structure: boolean;
+  alpha: number;
   gross: GrossLevel[];
   fine: FineLevel[] | null;
 }
