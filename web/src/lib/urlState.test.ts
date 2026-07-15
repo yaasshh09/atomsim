@@ -46,18 +46,23 @@ describe("parseAppUrl", () => {
     });
   });
 
-  it("parses lab alpha and Z for the what-if view", () => {
-    expect(parseAppUrl("?view=whatif&alpha=0.02&z=3")).toEqual({
+  it("parses lab constant multipliers and Z for the what-if view", () => {
+    expect(parseAppUrl("?view=whatif&e=2&eps0=4&z=3")).toEqual({
       view: "whatif",
-      labAlpha: 0.02,
+      labConst: { hbar: 1, e: 2, m_e: 1, eps0: 4, c: 1 },
       labZ: 3,
     });
   });
 
-  it("clamps alpha to (0, 0.5] and Z to [1, 10], dropping junk", () => {
-    expect(parseAppUrl("?alpha=0.9")).toEqual({ labAlpha: 0.5 });
-    expect(parseAppUrl("?alpha=0")).toEqual({});
-    expect(parseAppUrl("?alpha=nope")).toEqual({});
+  it("clamps constant multipliers to [0.25, 4] and Z to [1, 10], dropping junk", () => {
+    expect(parseAppUrl("?e=9")).toEqual({
+      labConst: { hbar: 1, e: 4, m_e: 1, eps0: 1, c: 1 },
+    });
+    expect(parseAppUrl("?me=0.1")).toEqual({
+      labConst: { hbar: 1, e: 1, m_e: 0.25, eps0: 1, c: 1 },
+    });
+    expect(parseAppUrl("?e=0")).toEqual({});
+    expect(parseAppUrl("?e=nope")).toEqual({});
     expect(parseAppUrl("?z=0")).toEqual({ labZ: 1 });
     expect(parseAppUrl("?z=99")).toEqual({ labZ: 10 });
   });
@@ -86,7 +91,7 @@ describe("serializeAppUrl", () => {
       fineStructure: true,
       nucleusMode: "hidden" as const,
       planeQuantity: "psi" as const,
-      labAlpha: 0.02,
+      labConst: { hbar: 1, e: 2, m_e: 1, eps0: 4, c: 1 },
       labZ: 3,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));

@@ -1,11 +1,11 @@
 /* Deep links = the demo-script hook surface (spec M4): every app state the
  * Phase 2 guided tour needs is addressable by URL alone. Parsing validates
  * hard — a junk parameter is dropped, never propagated into the store. */
-import type { Basis, PlaneQuantity } from "../api/client";
+import type { Basis, ConstMultipliers, PlaneQuantity } from "../api/client";
 import type { ColorMode, ViewMode } from "../state/store";
 import type { NucleusMode } from "./nucleus";
 import { clampState } from "./quantum";
-import { ALPHA_MAX, REAL_ALPHA } from "./whatif";
+import { CONST_MAX, CONST_MIN, CONSTANT_KEYS, type ConstantKey } from "./whatif";
 
 export interface UrlState {
   n: number;
@@ -18,7 +18,7 @@ export interface UrlState {
   fineStructure: boolean;
   nucleusMode: NucleusMode;
   planeQuantity: PlaneQuantity;
-  labAlpha: number;
+  labConst: ConstMultipliers;
   labZ: number;
 }
 
@@ -33,7 +33,7 @@ export const URL_DEFAULTS: UrlState = {
   fineStructure: false,
   nucleusMode: "marker",
   planeQuantity: "density",
-  labAlpha: REAL_ALPHA,
+  labConst: { hbar: 1, e: 1, m_e: 1, eps0: 1, c: 1 },
   labZ: 1,
 };
 
@@ -46,6 +46,15 @@ const BASES: Basis[] = ["complex", "real"];
 const NUCLEUS: NucleusMode[] = ["hidden", "true-scale", "marker"];
 const PLANES: PlaneQuantity[] = ["density", "psi"];
 const SYSTEM_KEY = /^[a-z0-9+-]{1,16}$/;
+
+// short URL names for the five constant multipliers (m_e -> "me")
+const CONST_PARAMS: Record<ConstantKey, string> = {
+  hbar: "hbar",
+  e: "e",
+  m_e: "me",
+  eps0: "eps0",
+  c: "c",
+};
 
 function pickEnum<T extends string>(raw: string | null, allowed: T[]): T | undefined {
   return allowed.includes(raw as T) ? (raw as T) : undefined;
@@ -101,8 +110,13 @@ export function parseAppUrl(search: string): Partial<UrlState> {
   if (fs === "1" || fs === "true") out.fineStructure = true;
   else if (fs === "0" || fs === "false") out.fineStructure = false;
 
-  const alpha = pickFloat(q.get("alpha"));
-  if (alpha !== undefined && alpha > 0) out.labAlpha = Math.min(alpha, ALPHA_MAX);
+  const lc: Partial<ConstMultipliers> = {};
+  for (const k of CONSTANT_KEYS) {
+    const v = pickFloat(q.get(CONST_PARAMS[k]));
+    if (v !== undefined && v > 0) lc[k] = Math.min(Math.max(v, CONST_MIN), CONST_MAX);
+  }
+  if (Object.keys(lc).length > 0) out.labConst = { ...URL_DEFAULTS.labConst, ...lc };
+
   const z = pickInt(q.get("z"));
   if (z !== undefined) out.labZ = Math.min(Math.max(z, 1), 10);
 
@@ -122,8 +136,10 @@ export function serializeAppUrl(state: UrlState): string {
   if (state.fineStructure !== URL_DEFAULTS.fineStructure) q.set("fs", "1");
   if (state.nucleusMode !== URL_DEFAULTS.nucleusMode) q.set("nucleus", state.nucleusMode);
   if (state.planeQuantity !== URL_DEFAULTS.planeQuantity) q.set("plane", state.planeQuantity);
-  if (Math.abs(state.labAlpha - URL_DEFAULTS.labAlpha) > 1e-9) {
-    q.set("alpha", String(state.labAlpha));
+  for (const k of CONSTANT_KEYS) {
+    if (Math.abs(state.labConst[k] - URL_DEFAULTS.labConst[k]) > 1e-9) {
+      q.set(CONST_PARAMS[k], String(state.labConst[k]));
+    }
   }
   if (state.labZ !== URL_DEFAULTS.labZ) q.set("z", String(state.labZ));
   // note: '+' stays percent-encoded (%2B) — a literal '+' in a query string

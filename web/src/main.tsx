@@ -21,7 +21,7 @@ useAppStore.subscribe((s) => {
     fineStructure: s.fineStructure,
     nucleusMode: s.nucleusMode,
     planeQuantity: s.planeQuantity,
-    labAlpha: s.labAlpha,
+    labConst: s.labConst,
     labZ: s.labZ,
   });
   const next = window.location.pathname + qs;
