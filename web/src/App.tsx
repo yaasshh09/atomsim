@@ -6,6 +6,7 @@ import { LevelsView } from "./components/LevelsView";
 import { PlaneView } from "./components/PlaneView";
 import { RadialView } from "./components/RadialView";
 import { SpectrumView } from "./components/SpectrumView";
+import { WhatIfView } from "./components/WhatIfView";
 import { useAppStore } from "./state/store";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
         {view === "radial" && <RadialView />}
         {view === "levels" && <LevelsView />}
         {view === "spectrum" && <SpectrumView />}
+        {view === "whatif" && <WhatIfView />}
         <GalleryStrip />
       </main>
       <Controls />

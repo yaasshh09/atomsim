@@ -470,3 +470,40 @@ button.primary:disabled {
   color: var(--muted);
   font-size: 0.8rem;
 }
+
+/* What-If constants lab */
+.counterfactual-banner {
+  margin: 4px 0 8px;
+  padding: 6px 10px;
+  border: 1px solid #f472b6;
+  border-radius: 6px;
+  color: #f472b6;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+.rung-counterfactual {
+  stroke: #f472b6;
+}
+.whatif-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+.whatif-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+.whatif-controls .stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.whatif-controls .stepper button {
+  width: 28px;
+}

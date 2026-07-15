@@ -61,6 +61,19 @@ export const PHYSICS_CONTENT: Record<
       },
     ],
   },
+  whatif: {
+    title: "What α does (and does not) touch",
+    blocks: [
+      {
+        tex: String.raw`E_n = -\frac{Z^2}{2n^2}\,\frac{\mu}{m_e}\,E_h`,
+        note: "The gross ladder in Hartree atomic units contains no α: turning the slider leaves these rungs fixed (EXACT). Z enters as Z².",
+      },
+      {
+        tex: String.raw`\Delta E_{nj} = -\frac{(Z\alpha)^2\,|E_n|}{n}\left(\frac{1}{j+\tfrac12} - \frac{3}{4n}\right)`,
+        note: "The fine split scales as (Zα)² — this is the term the lab drives. APPROXIMATION badge: the perturbative error itself grows as (Zα)², and past the disclosed validity limit the exact Dirac result would differ.",
+      },
+    ],
+  },
   spectrum: {
     title: "Where the lines come from",
     blocks: [
