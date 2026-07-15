@@ -25,6 +25,7 @@ from atomsim.analytic.hydrogen import (
 )
 from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
 from atomsim.constants import ALPHA, BOHR_RADIUS_PM, HARTREE_EV
+from atomsim.constants_lab import analyze_constants
 from atomsim.plane import PlaneGrid, plane_grid
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
@@ -32,6 +33,7 @@ from atomsim.server.jobs import Job, JobStatus, JobStore
 from atomsim.server.schemas import (
     ChannelModel,
     ComparisonModel,
+    ConstantsReportModel,
     FieldModel,
     LineModel,
     ProvenanceModel,
@@ -348,6 +350,19 @@ def create_app() -> FastAPI:
             system=SystemModel.from_system(sys_), n_max=n_max,
             fine_structure=fine_structure, alpha=alpha_used, gross=gross, fine=fine,
         )
+
+    @app.get("/api/constants", response_model=ConstantsReportModel)
+    def constants_endpoint(hbar: float = 1.0, e: float = 1.0, m_e: float = 1.0,
+                           eps0: float = 1.0, c: float = 1.0) -> ConstantsReportModel:
+        for name, mult in (("hbar", hbar), ("e", e), ("m_e", m_e),
+                           ("eps0", eps0), ("c", c)):
+            if not 0.25 <= mult <= 4.0:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{name} multiplier must be in [0.25, 4], got {mult}",
+                )
+        report = analyze_constants(hbar=hbar, e=e, m_e=m_e, eps0=eps0, c=c)
+        return ConstantsReportModel.from_report(report)
 
     @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)
     def radial(n: int, l: int, system: str = "h", points: int = 400) -> RadialResponse:

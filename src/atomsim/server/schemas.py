@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from atomsim.constants import BOHR_RADIUS_FM
+from atomsim.constants_lab import ConstantsReport, DerivedObservable
 from atomsim.provenance import Field, Provenance, Quantity
 from atomsim.spectra import LineComparison, SpectralLine
 from atomsim.systems import System
@@ -59,6 +60,36 @@ class QuantityModel(BaseModel):
             unit=q.unit,
             label=q.label,
             provenance=ProvenanceModel.from_provenance(q.provenance),
+        )
+
+
+class DerivedObservableModel(BaseModel):
+    quantity: QuantityModel
+    ratio: float
+    changed: bool
+
+    @classmethod
+    def from_observable(cls, o: DerivedObservable) -> "DerivedObservableModel":
+        return cls(
+            quantity=QuantityModel.from_quantity(o.quantity),
+            ratio=o.ratio,
+            changed=o.changed,
+        )
+
+
+class ConstantsReportModel(BaseModel):
+    alpha: DerivedObservableModel
+    bohr_radius_pm: DerivedObservableModel
+    hartree_ev: DerivedObservableModel
+    altered: bool
+
+    @classmethod
+    def from_report(cls, r: ConstantsReport) -> "ConstantsReportModel":
+        return cls(
+            alpha=DerivedObservableModel.from_observable(r.alpha),
+            bohr_radius_pm=DerivedObservableModel.from_observable(r.bohr_radius_pm),
+            hartree_ev=DerivedObservableModel.from_observable(r.hartree_ev),
+            altered=r.altered,
         )
 
 

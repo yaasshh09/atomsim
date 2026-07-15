@@ -407,3 +407,31 @@ def test_levels_rejects_bad_alpha_and_z(client):
     assert client.get("/api/levels?alpha=0.6").status_code == 422
     assert client.get("/api/levels?system=z0").status_code == 422
     assert client.get("/api/levels?system=z99").status_code == 422
+
+
+def test_constants_default_is_real_and_exact(client):
+    body = client.get("/api/constants").json()
+    assert body["altered"] is False
+    assert body["alpha"]["quantity"]["value"] == pytest.approx(ALPHA, rel=1e-6)
+    assert body["alpha"]["quantity"]["provenance"]["fidelity"] == "exact"
+    assert body["alpha"]["changed"] is False
+
+
+def test_constants_degeneracy_pair_changes_nothing_observable(client):
+    body = client.get("/api/constants?e=2&eps0=4").json()
+    assert body["altered"] is True
+    assert body["alpha"]["changed"] is False
+    assert body["bohr_radius_pm"]["changed"] is False
+    assert body["hartree_ev"]["changed"] is False
+    assert body["alpha"]["quantity"]["provenance"]["fidelity"] == "counterfactual"
+
+
+def test_constants_electron_mass_scales_size_and_binding(client):
+    body = client.get("/api/constants?m_e=0.5").json()
+    assert body["bohr_radius_pm"]["ratio"] == pytest.approx(2.0)
+    assert body["hartree_ev"]["ratio"] == pytest.approx(0.5)
+
+
+def test_constants_rejects_out_of_range(client):
+    assert client.get("/api/constants?e=0.1").status_code == 422
+    assert client.get("/api/constants?hbar=5").status_code == 422
