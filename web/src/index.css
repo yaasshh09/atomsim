@@ -507,3 +507,32 @@ button.primary:disabled {
 .whatif-controls .stepper button {
   width: 28px;
 }
+
+/* What-If five-constant panel */
+.const-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 20px;
+  margin-top: 10px;
+}
+.const-sliders label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.const-sliders label span {
+  font-variant-numeric: tabular-nums;
+}
+.readout-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.readout-ratio {
+  color: #7c8798;
+  font-variant-numeric: tabular-nums;
+}
+.readout-ratio.changed {
+  color: #f472b6;
+  font-weight: 600;
+}
