@@ -44,6 +44,12 @@ Everything below landed in M1–M3:
      fine-structure column (two scales, labeled, never blended)
   5. **Spectrum** — computed emission lines vs vendored NIST ASD reference with
      a residual band at the stated tolerance
+- **What-If constants lab** (Phase 2, sixth view): a continuous α slider and an
+  integer-Z stepper drive a real-vs-altered energy-level diagram. Altering α
+  flips the fine-structure levels to `COUNTERFACTUAL` provenance (behind a
+  banner) while the Pauli-approximation error stays disclosed — and the view
+  says out loud where the perturbative model breaks down instead of quietly
+  lying past its validity. Deep-linkable (`?view=whatif&alpha=0.02&z=3`)
 - **Thumbnail gallery** of every (l, m) state in the shell — server-rendered
   matplotlib PNGs, disclosed as gamma-brightened navigation aids
 - **Layered math**: a per-view "Show the physics" KaTeX expander — the app is
