@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import * as client from "../api/client";
-import type { Basis, PlaneQuantity } from "../api/client";
+import type { Basis, ConstMultipliers, PlaneQuantity } from "../api/client";
 import type {
+  ConstantsReport,
   LevelsResponse,
   PlaneMeta,
   RadialResponse,
@@ -12,7 +13,7 @@ import type {
 } from "../api/types";
 import type { NucleusMode } from "../lib/nucleus";
 import { clampState } from "../lib/quantum";
-import { REAL_ALPHA } from "../lib/whatif";
+import { isAlphaValid } from "../lib/whatif";
 
 export type SampleStatus = "idle" | "sampling" | "ready" | "error";
 export type ViewMode = "cloud" | "plane" | "radial" | "levels" | "spectrum" | "whatif";
@@ -48,11 +49,15 @@ interface AppState {
   radial: RadialResponse | null;
   levels: LevelsResponse | null;
   spectrum: SpectrumResponse | null;
-  labAlpha: number;
+  labConst: ConstMultipliers;
   labZ: number;
-  whatif: { real: LevelsResponse; altered: LevelsResponse } | null;
+  whatif: {
+    report: ConstantsReport;
+    real: LevelsResponse;
+    altered: LevelsResponse | null;
+  } | null;
   whatifStatus: SampleStatus;
-  setLabAlpha: (labAlpha: number) => void;
+  setLabConst: (partial: Partial<ConstMultipliers>) => void;
   setLabZ: (labZ: number) => void;
   loadWhatIf: () => Promise<void>;
   setQuantumNumbers: (n: number, l: number, m: number) => void;
@@ -106,7 +111,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   systems: [],
   fps: 0,
   planeQuantity: "density",
-  labAlpha: REAL_ALPHA,
+  labConst: { hbar: 1, e: 1, m_e: 1, eps0: 1, c: 1 },
   labZ: 1,
   whatif: null,
   whatifStatus: "idle",
@@ -130,18 +135,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ planeQuantity, plane: null, planeStatus: "idle", planeProgress: 0 }),
   setFps: (fps) => set({ fps }),
   // lab slice: independent of the main (n,l,m,system) physics — never in INVALIDATED
-  setLabAlpha: (labAlpha) => set({ labAlpha, whatif: null, whatifStatus: "idle" }),
+  setLabConst: (partial) =>
+    set((s) => ({
+      labConst: { ...s.labConst, ...partial },
+      whatif: null,
+      whatifStatus: "idle",
+    })),
   setLabZ: (labZ) => set({ labZ, whatif: null, whatifStatus: "idle" }),
   loadWhatIf: async () => {
-    const { labAlpha, labZ } = get();
+    const { labConst, labZ } = get();
     const sys = `z${labZ}`;
     set({ whatifStatus: "sampling", error: null });
     try {
-      const [real, altered] = await Promise.all([
-        client.getLevels(sys, N_MAX_DIAGRAM, true),
-        client.getLevels(sys, N_MAX_DIAGRAM, true, labAlpha),
-      ]);
-      set({ whatif: { real, altered }, whatifStatus: "ready" });
+      const report = await client.getConstants(labConst);
+      const alpha = report.alpha.quantity.value;
+      const real = await client.getLevels(sys, N_MAX_DIAGRAM, true);
+      // altered diagram only when the derived alpha stays in the perturbative range
+      const altered =
+        report.altered && isAlphaValid(alpha)
+          ? await client.getLevels(sys, N_MAX_DIAGRAM, true, alpha)
+          : null;
+      set({ whatif: { report, real, altered }, whatifStatus: "ready" });
     } catch (err) {
       set({
         whatifStatus: "error",
