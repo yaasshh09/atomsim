@@ -197,6 +197,27 @@ class SystemModel(BaseModel):
         )
 
 
+class ForceLawLevelModel(BaseModel):
+    radial_index: int
+    energy: QuantityModel
+    energy_ev: QuantityModel
+
+
+class ReferenceLevelModel(BaseModel):
+    n: int
+    energy: QuantityModel
+    energy_ev: QuantityModel
+
+
+class ForceLawModel(BaseModel):
+    p: float
+    l: int
+    z: int
+    system: SystemModel
+    counterfactual: list[ForceLawLevelModel]
+    reference: list[ReferenceLevelModel]
+
+
 class LineModel(BaseModel):
     n_upper: int
     l_upper: int

@@ -454,3 +454,34 @@ def test_classical_orbits_cover_1_to_n(client):
 
 def test_classical_rejects_n_below_one(client):
     assert client.get("/api/classical?system=h&n=0").status_code == 422
+
+
+def test_forcelaw_identity_matches_reference(client):
+    r = client.get("/api/forcelaw?p=1.0&l=0&system=h&n_states=2")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["p"] == 1.0 and body["l"] == 0 and body["z"] == 1
+    cf, ref = body["counterfactual"], body["reference"]
+    assert len(cf) == len(ref) == 2
+    assert cf[0]["radial_index"] == 0 and ref[0]["n"] == 1
+    # at p=1 numerical ~ exact
+    assert cf[0]["energy"]["value"] == pytest.approx(ref[0]["energy"]["value"], rel=2e-3)
+    # provenance survives to the browser, tiers distinct
+    assert cf[0]["energy"]["provenance"]["fidelity"] == "numerical"
+    assert ref[0]["energy"]["provenance"]["fidelity"] == "exact"
+    # eV conversion present at the boundary
+    assert cf[0]["energy_ev"]["unit"] == "eV"
+
+
+def test_forcelaw_reference_gated_to_n_ge_l_plus_1(client):
+    body = client.get("/api/forcelaw?p=1.1&l=1&n_states=3").json()
+    assert [r["n"] for r in body["reference"]] == [2, 3, 4]
+
+
+def test_forcelaw_rejects_out_of_range_p(client):
+    assert client.get("/api/forcelaw?p=2.5&l=0").status_code == 422
+    assert client.get("/api/forcelaw?p=0.1&l=0").status_code == 422
+
+
+def test_forcelaw_rejects_negative_l(client):
+    assert client.get("/api/forcelaw?p=1.0&l=-1").status_code == 422

@@ -27,6 +27,7 @@ from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
 from atomsim.classical import classical_ghost
 from atomsim.constants import ALPHA, BOHR_RADIUS_PM, HARTREE_EV
 from atomsim.constants_lab import analyze_constants
+from atomsim.numerics.force_law import P_MAX, P_MIN, force_law_levels
 from atomsim.plane import PlaneGrid, plane_grid
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
@@ -37,9 +38,12 @@ from atomsim.server.schemas import (
     ComparisonModel,
     ConstantsReportModel,
     FieldModel,
+    ForceLawLevelModel,
+    ForceLawModel,
     LineModel,
     ProvenanceModel,
     QuantityModel,
+    ReferenceLevelModel,
     SystemModel,
 )
 from atomsim.server.thumbnails import render_thumbnail
@@ -372,6 +376,45 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=422, detail=f"n must be >= 1, got {n}")
         sys_ = _resolve_system(system)
         return ClassicalGhostModel.from_ghost(classical_ghost(n=n, system=sys_))
+
+    @app.get("/api/forcelaw", response_model=ForceLawModel)
+    def forcelaw_endpoint(
+        p: float = 1.0, l: int = 0, system: str = "h", n_states: int = 4
+    ) -> ForceLawModel:
+        if not P_MIN <= p <= P_MAX:
+            raise HTTPException(
+                status_code=422, detail=f"p must be in [{P_MIN}, {P_MAX}], got {p}"
+            )
+        if l < 0:
+            raise HTTPException(status_code=422, detail=f"l must be >= 0, got {l}")
+        if not 1 <= n_states <= 8:
+            raise HTTPException(
+                status_code=422, detail=f"n_states must be in [1, 8], got {n_states}"
+            )
+        sys_ = _resolve_system(system)
+        result = force_law_levels(p=p, l=l, system=sys_, n_states=n_states)
+        return ForceLawModel(
+            p=result.p,
+            l=result.l,
+            z=result.z,
+            system=SystemModel.from_system(sys_),
+            counterfactual=[
+                ForceLawLevelModel(
+                    radial_index=c.radial_index,
+                    energy=QuantityModel.from_quantity(c.energy),
+                    energy_ev=QuantityModel.from_quantity(_to_ev(c.energy)),
+                )
+                for c in result.counterfactual
+            ],
+            reference=[
+                ReferenceLevelModel(
+                    n=r.n,
+                    energy=QuantityModel.from_quantity(r.energy),
+                    energy_ev=QuantityModel.from_quantity(_to_ev(r.energy)),
+                )
+                for r in result.reference
+            ],
+        )
 
     @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)
     def radial(n: int, l: int, system: str = "h", points: int = 400) -> RadialResponse:
