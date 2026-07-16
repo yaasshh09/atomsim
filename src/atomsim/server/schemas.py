@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from atomsim.classical import BohrOrbit, ClassicalGhost
 from atomsim.constants import BOHR_RADIUS_FM
 from atomsim.constants_lab import ConstantsReport, DerivedObservable
 from atomsim.provenance import Field, Provenance, Quantity
@@ -90,6 +91,44 @@ class ConstantsReportModel(BaseModel):
             bohr_radius_pm=DerivedObservableModel.from_observable(r.bohr_radius_pm),
             hartree_ev=DerivedObservableModel.from_observable(r.hartree_ev),
             altered=r.altered,
+        )
+
+
+class BohrOrbitModel(BaseModel):
+    n: int
+    radius_bohr: QuantityModel
+    radius_pm: QuantityModel
+
+    @classmethod
+    def from_orbit(cls, o: BohrOrbit) -> "BohrOrbitModel":
+        return cls(
+            n=o.n,
+            radius_bohr=QuantityModel.from_quantity(o.radius_bohr),
+            radius_pm=QuantityModel.from_quantity(o.radius_pm),
+        )
+
+
+class ClassicalGhostModel(BaseModel):
+    n: int
+    system_key: str
+    z: int
+    orbits: list[BohrOrbitModel]
+    r0_bohr: QuantityModel
+    collapse_time_s: QuantityModel
+    orbital_period_s: QuantityModel
+    orbit_count: QuantityModel
+
+    @classmethod
+    def from_ghost(cls, g: ClassicalGhost) -> "ClassicalGhostModel":
+        return cls(
+            n=g.n,
+            system_key=g.system_key,
+            z=g.z,
+            orbits=[BohrOrbitModel.from_orbit(o) for o in g.orbits],
+            r0_bohr=QuantityModel.from_quantity(g.r0_bohr),
+            collapse_time_s=QuantityModel.from_quantity(g.collapse_time_s),
+            orbital_period_s=QuantityModel.from_quantity(g.orbital_period_s),
+            orbit_count=QuantityModel.from_quantity(g.orbit_count),
         )
 
 

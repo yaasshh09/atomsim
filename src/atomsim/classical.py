@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from atomsim.constants import FundamentalConstants
 from atomsim.provenance import Fidelity, Provenance, Quantity
-from atomsim.systems import get_system
+from atomsim.systems import System, get_system
 
 _APPROX = "Bohr model r_n = n^2 a0 / Z (semi-classical circular orbit)"
 _LARMOR = "Larmor radiative collapse, classical E&M, exact under classical rules"
@@ -48,10 +48,12 @@ def _bohr_orbit(n: int, a0_sys_m: float, a0_m: float, z: int) -> BohrOrbit:
     )
 
 
-def classical_ghost(n: int, system: str = "h") -> ClassicalGhost:
+def classical_ghost(n: int, system: str | System = "h") -> ClassicalGhost:
     if n < 1:
         raise ValueError(f"n must be >= 1, got {n}")
-    sys = get_system(system)
+    # Accept a bare key (registered systems) or an already-resolved System, so the
+    # server can hand us generic hydrogen-like ions (z{N}) that get_system doesn't know.
+    sys = system if isinstance(system, System) else get_system(system)
     z = sys.Z
     c = FundamentalConstants.codata()
     m = sys.mu_ratio.value * c.m_e                 # orbiting reduced mass (kg)

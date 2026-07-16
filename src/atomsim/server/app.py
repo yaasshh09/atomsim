@@ -24,6 +24,7 @@ from atomsim.analytic.hydrogen import (
     validate_quantum_numbers,
 )
 from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
+from atomsim.classical import classical_ghost
 from atomsim.constants import ALPHA, BOHR_RADIUS_PM, HARTREE_EV
 from atomsim.constants_lab import analyze_constants
 from atomsim.plane import PlaneGrid, plane_grid
@@ -32,6 +33,7 @@ from atomsim.sampling import SampleCloud, sample_density
 from atomsim.server.jobs import Job, JobStatus, JobStore
 from atomsim.server.schemas import (
     ChannelModel,
+    ClassicalGhostModel,
     ComparisonModel,
     ConstantsReportModel,
     FieldModel,
@@ -363,6 +365,13 @@ def create_app() -> FastAPI:
                 )
         report = analyze_constants(hbar=hbar, e=e, m_e=m_e, eps0=eps0, c=c)
         return ConstantsReportModel.from_report(report)
+
+    @app.get("/api/classical", response_model=ClassicalGhostModel)
+    def classical_endpoint(system: str = "h", n: int = 1) -> ClassicalGhostModel:
+        if n < 1:
+            raise HTTPException(status_code=422, detail=f"n must be >= 1, got {n}")
+        sys_ = _resolve_system(system)
+        return ClassicalGhostModel.from_ghost(classical_ghost(n=n, system=sys_))
 
     @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)
     def radial(n: int, l: int, system: str = "h", points: int = 400) -> RadialResponse:

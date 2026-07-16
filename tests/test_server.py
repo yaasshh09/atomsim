@@ -435,3 +435,22 @@ def test_constants_electron_mass_scales_size_and_binding(client):
 def test_constants_rejects_out_of_range(client):
     assert client.get("/api/constants?e=0.1").status_code == 422
     assert client.get("/api/constants?hbar=5").status_code == 422
+
+
+def test_classical_hydrogen_ground(client):
+    r = client.get("/api/classical?system=h&n=1")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["z"] == 1
+    assert body["collapse_time_s"]["value"] == pytest.approx(1.556e-11, rel=0.02)
+    assert body["collapse_time_s"]["provenance"]["fidelity"] == "counterfactual"
+    assert body["orbits"][0]["radius_bohr"]["provenance"]["fidelity"] == "approximation"
+
+
+def test_classical_orbits_cover_1_to_n(client):
+    body = client.get("/api/classical?system=h&n=3").json()
+    assert [o["n"] for o in body["orbits"]] == [1, 2, 3]
+
+
+def test_classical_rejects_n_below_one(client):
+    assert client.get("/api/classical?system=h&n=0").status_code == 422
