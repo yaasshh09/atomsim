@@ -147,6 +147,23 @@ export interface SpectrumResponse {
   tolerance_relative: number | null;
 }
 
+export interface BohrOrbit {
+  n: number;
+  radius_bohr: Quantity;
+  radius_pm: Quantity;
+}
+
+export interface ClassicalGhost {
+  n: number;
+  system_key: string;
+  z: number;
+  orbits: BohrOrbit[];
+  r0_bohr: Quantity;
+  collapse_time_s: Quantity;
+  orbital_period_s: Quantity;
+  orbit_count: Quantity;
+}
+
 export type JobStatus = "pending" | "running" | "done" | "error";
 
 export interface JobInfo {

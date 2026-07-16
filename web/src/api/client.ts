@@ -1,4 +1,5 @@
 import type {
+  ClassicalGhost,
   ConstantsReport,
   JobInfo,
   JobMeta,
@@ -72,6 +73,10 @@ export function getConstants(m: ConstMultipliers): Promise<ConstantsReport> {
   return getJson(
     `/api/constants?hbar=${m.hbar}&e=${m.e}&m_e=${m.m_e}&eps0=${m.eps0}&c=${m.c}`,
   );
+}
+
+export function getClassical(system: string, n: number): Promise<ClassicalGhost> {
+  return getJson(`/api/classical?system=${encodeURIComponent(system)}&n=${n}`);
 }
 
 export function getSpectrum(
