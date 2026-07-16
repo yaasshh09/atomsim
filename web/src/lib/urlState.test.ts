@@ -89,6 +89,7 @@ describe("serializeAppUrl", () => {
       view: "whatif" as const,
       colorMode: "density" as const,
       fineStructure: true,
+      ghost: false,
       nucleusMode: "hidden" as const,
       planeQuantity: "psi" as const,
       labConst: { hbar: 1, e: 2, m_e: 1, eps0: 4, c: 1 },
@@ -96,5 +97,12 @@ describe("serializeAppUrl", () => {
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
     expect({ ...URL_DEFAULTS, ...parsed }).toEqual(state);
+  });
+
+  it("round-trips the ghost toggle", () => {
+    const withGhost = parseAppUrl(serializeAppUrl({ ...URL_DEFAULTS, ghost: true }));
+    expect(withGhost.ghost).toBe(true);
+    const withoutGhost = parseAppUrl(serializeAppUrl({ ...URL_DEFAULTS, ghost: false }));
+    expect({ ...URL_DEFAULTS, ...withoutGhost }.ghost).toBe(false);
   });
 });

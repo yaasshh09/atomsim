@@ -19,6 +19,7 @@ useAppStore.subscribe((s) => {
     view: s.view,
     colorMode: s.colorMode,
     fineStructure: s.fineStructure,
+    ghost: s.ghost,
     nucleusMode: s.nucleusMode,
     planeQuantity: s.planeQuantity,
     labConst: s.labConst,
