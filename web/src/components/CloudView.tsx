@@ -54,7 +54,14 @@ export function CloudView() {
     classicalGhost,
     classicalStatus,
     setGhost,
+    loadClassical,
   } = useAppStore();
+  // Deep-link (?ghost=1) sets `ghost` in initial state without going through
+  // setGhost, and changing n/system resets the ghost data to idle while the
+  // toggle stays on. Either way, fetch when the overlay is on but data is idle.
+  useEffect(() => {
+    if (ghost && classicalStatus === "idle") void loadClassical();
+  }, [ghost, classicalStatus, loadClassical]);
   // Live loop phase shared between the in-Canvas animation (writes each frame)
   // and the HUD clock (polls at 10 Hz) — no per-frame React renders.
   const ghostTauRef = useRef(0);
