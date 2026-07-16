@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as client from "../api/client";
 import type { Basis, ConstMultipliers, PlaneQuantity } from "../api/client";
 import type {
+  ClassicalGhost,
   ConstantsReport,
   LevelsResponse,
   PlaneMeta,
@@ -57,6 +58,11 @@ interface AppState {
     altered: LevelsResponse | null;
   } | null;
   whatifStatus: SampleStatus;
+  ghost: boolean;
+  classicalGhost: ClassicalGhost | null;
+  classicalStatus: SampleStatus;
+  setGhost: (on: boolean) => void;
+  loadClassical: () => Promise<void>;
   setLabConst: (partial: Partial<ConstMultipliers>) => void;
   setLabZ: (labZ: number) => void;
   loadWhatIf: () => Promise<void>;
@@ -115,9 +121,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   labZ: 1,
   whatif: null,
   whatifStatus: "idle",
+  ghost: false,
+  classicalGhost: null,
+  classicalStatus: "idle",
   ...INVALIDATED,
-  setQuantumNumbers: (n, l, m) => set({ ...clampState(n, l, m), ...INVALIDATED }),
-  setSystem: (system) => set({ system, ...INVALIDATED }),
+  // classical ghost data depends on (n, system) but not (l, m, basis), so it is
+  // reset explicitly here rather than living in INVALIDATED (basis changes keep it).
+  setQuantumNumbers: (n, l, m) =>
+    set({ ...clampState(n, l, m), ...INVALIDATED, classicalGhost: null, classicalStatus: "idle" }),
+  setSystem: (system) =>
+    set({ system, ...INVALIDATED, classicalGhost: null, classicalStatus: "idle" }),
   setBasis: (basis) =>
     set((s) => ({
       basis,
@@ -142,6 +155,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       whatifStatus: "idle",
     })),
   setLabZ: (labZ) => set({ labZ, whatif: null, whatifStatus: "idle" }),
+  // overlay visibility is presentational; the data itself carries provenance
+  setGhost: (on) => {
+    set({ ghost: on });
+    if (on && get().classicalStatus === "idle") void get().loadClassical();
+  },
+  loadClassical: async () => {
+    const { n, system } = get();
+    set({ classicalStatus: "sampling" });
+    try {
+      const classicalGhost = await client.getClassical(system, n);
+      set({ classicalGhost, classicalStatus: "ready" });
+    } catch (err) {
+      set({
+        classicalStatus: "error",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  },
   loadWhatIf: async () => {
     const { labConst, labZ } = get();
     const sys = `z${labZ}`;

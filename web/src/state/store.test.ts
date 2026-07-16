@@ -99,6 +99,32 @@ describe("store transitions", () => {
     expect(s.positions).not.toBeNull();
   });
 
+  it("ghost toggle is off by default and flips without touching physics fields", async () => {
+    pretendLoaded();
+    const before = useAppStore.getState().positions;
+    expect(useAppStore.getState().ghost).toBe(false);
+    useAppStore.getState().setGhost(true);
+    expect(useAppStore.getState().ghost).toBe(true);
+    expect(useAppStore.getState().positions).toBe(before);
+    // setGhost fired loadClassical (status was "idle"); let its fetch rejection
+    // settle inside this test so the caught-error set() cannot leak into the next.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  it("changing n or system clears loaded classical data (no stale ghost)", () => {
+    useAppStore.setState({ classicalGhost: { n: 1 } as never, classicalStatus: "ready" });
+    useAppStore.getState().setQuantumNumbers(2, 0, 0);
+    expect(useAppStore.getState().classicalGhost).toBeNull();
+    expect(useAppStore.getState().classicalStatus).toBe("idle");
+  });
+
+  it("changing system clears loaded classical data", () => {
+    useAppStore.setState({ classicalGhost: { n: 1 } as never, classicalStatus: "ready" });
+    useAppStore.getState().setSystem("he+");
+    expect(useAppStore.getState().classicalGhost).toBeNull();
+    expect(useAppStore.getState().classicalStatus).toBe("idle");
+  });
+
   it("nucleus mode is a pure render choice: defaults to marker, clears nothing", () => {
     expect(useAppStore.getState().nucleusMode).toBe("marker");
     pretendLoaded();
