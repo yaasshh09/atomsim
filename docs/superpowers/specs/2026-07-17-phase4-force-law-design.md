@@ -59,6 +59,11 @@ E_n = -(Z² · μ) / (2 n²)   hartree,   for n ≥ l + 1
   truth as the anchor is *more* honest than re-solving Coulomb numerically, because
   it keeps solver error out of the ground truth.
 
+**Pairing convention.** The counterfactual's radial index `k` (0-based, node
+count) pairs with hydrogen level `n = l + 1 + k`. Both lists carry `n_states`
+entries, index-for-index, so at `p = 1` the `k`-th numerical level equals the
+`k`-th reference level. (`2s = (l=0, k=1)`, `2p = (l=1, k=0)`, both `n=2`.)
+
 **The asymmetry is disclosed, not hidden.** The response carries both provenances
 distinctly (`NUMERICAL` counterfactual vs `EXACT` reference). Any visible gap is
 physics **plus** solver error, and the badge must say which side is which.
@@ -112,8 +117,11 @@ single-purpose.
 - **Diagram:** the counterfactual levels drawn against the hydrogen reference
   ghosted behind them, so the `l`-split is immediately visible; at `p=1` the two
   coincide.
-- **Provenance:** a `Badge` per side (`COUNTERFACTUAL`/`NUMERICAL` vs `EXACT`); the
-  disclosed liberty flows through `lib/liberties.ts` like every other.
+- **Provenance:** a `Badge` per side (`NUMERICAL` counterfactual vs `EXACT`
+  reference), reading the tier straight off each level's `provenance`. No
+  visual-liberty entry is invented — the diagram plots energies faithfully on a
+  labeled linear axis, so the data badges are the whole disclosure. (Inventing a
+  liberty where none exists would itself violate the prime directive.)
 - **Color/scale:** reuse the single color authority (`lib/luts.ts`) and existing
   level-diagram styling where applicable.
 
@@ -144,8 +152,12 @@ New physics gets a validation test, not a smoke test:
    This validates the entire numerical path against exact ground truth.
 2. **Degeneracy breaking:** lowest `l=0` and `l=1` states that coincide at `p=1`
    split measurably at `p=0.8` and `p=1.2`.
-3. **Direction of split:** the s-vs-p ordering flips sign across `p=1`
-   (softer → s below p; harder → s above p).
+3. **Direction of split:** the s-vs-p ordering flips sign across `p=1`, in the
+   direction fixed by the level-ordering theorem (sign of the 3-D Laplacian
+   `ΔV = V'' + (2/r)V' = Z·p·(1−p)·r^(−p−2)`):
+   - `p < 1` (softer, `ΔV > 0`): `E_2s > E_2p` — the penetrating s state lies *above* p.
+   - `p > 1` (harder, `ΔV < 0`): `E_2s < E_2p` — s lies *below* p (alkali ordering).
+   Here `2s = (l=0, radial index 1)` and `2p = (l=1, radial index 0)`, both `n=2`.
 4. **Reference gating:** the `EXACT` reference for `l` starts at `n = l+1`, never
    below.
 5. **Endpoint:** `422` on out-of-range `p` and negative `l`; both provenance tiers
