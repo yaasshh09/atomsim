@@ -2,11 +2,13 @@ import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import type * as THREE from "three";
+import { formatSeconds, slowMotionFactor } from "../lib/classical";
 import { buildCloudColors } from "../lib/cloudColors";
-import { NUCLEUS_MARKER_LIBERTY, RENDER_LIBERTIES } from "../lib/liberties";
+import { CLASSICAL_SLOWMO, NUCLEUS_MARKER_LIBERTY, RENDER_LIBERTIES } from "../lib/liberties";
 import { nucleusCaption, nucleusSphere } from "../lib/nucleus";
 import { useAppStore } from "../state/store";
 import { Badge } from "./Badge";
+import { GhostClock, GhostOverlay } from "./GhostOverlay";
 import { Legend } from "./Legend";
 import { PointCloud } from "./PointCloud";
 
@@ -40,8 +42,22 @@ function FpsMeter() {
 }
 
 export function CloudView() {
-  const { n, positions, density, phase, colorMode, stateInfo, nucleusMode } =
-    useAppStore();
+  const {
+    n,
+    positions,
+    density,
+    phase,
+    colorMode,
+    stateInfo,
+    nucleusMode,
+    ghost,
+    classicalGhost,
+    classicalStatus,
+    setGhost,
+  } = useAppStore();
+  // Live loop phase shared between the in-Canvas animation (writes each frame)
+  // and the HUD clock (polls at 10 Hz) — no per-frame React renders.
+  const ghostTauRef = useRef(0);
   const colors = useMemo(
     () => buildCloudColors(colorMode, density, phase),
     [colorMode, density, phase],
@@ -69,6 +85,9 @@ export function CloudView() {
             colors={colors}
           />
         )}
+        {ghost && classicalGhost && (
+          <GhostOverlay ghost={classicalGhost} distance={distance} tauRef={ghostTauRef} />
+        )}
         {nucleus && (
           <mesh>
             <sphereGeometry args={[nucleus.radius, 32, 16]} />
@@ -85,6 +104,40 @@ export function CloudView() {
         {nucleus?.kind === "marker" && <Badge provenance={NUCLEUS_MARKER_LIBERTY} />}
         {caption && <span className="nucleus-caption">{caption}</span>}
         <Legend mode={colorMode} />
+        <label className="ghost-toggle">
+          <input
+            type="checkbox"
+            checked={ghost}
+            onChange={(e) => setGhost(e.target.checked)}
+          />
+          Classical ghost
+        </label>
+        {ghost && classicalStatus === "sampling" && (
+          <span className="ghost-readout">loading classical orbits…</span>
+        )}
+        {ghost && classicalGhost && (
+          <div className="ghost-hud">
+            <div className="ghost-banner">
+              Counterfactual — a classical electron would spiral in; real atoms do not
+            </div>
+            <GhostClock
+              tauRef={ghostTauRef}
+              collapseSeconds={classicalGhost.collapse_time_s.value}
+            />
+            <div className="ghost-readout">
+              collapse in {formatSeconds(classicalGhost.collapse_time_s.value)}{" "}
+              <Badge provenance={classicalGhost.collapse_time_s.provenance} />
+            </div>
+            <div className="ghost-readout">
+              {Math.round(classicalGhost.orbit_count.value).toLocaleString()} orbits before
+              collapse <Badge provenance={classicalGhost.orbit_count.provenance} />
+            </div>
+            <div className="ghost-readout">
+              shown at ~{slowMotionFactor(classicalGhost.collapse_time_s.value).toExponential(1)}×
+              slow motion <Badge provenance={CLASSICAL_SLOWMO} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

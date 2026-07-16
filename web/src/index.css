@@ -536,3 +536,46 @@ button.primary:disabled {
   color: #f472b6;
   font-weight: 600;
 }
+
+/* Classical ghost overlay (CloudView) */
+.ghost-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted, #8fa3ad);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.ghost-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #f472b6; /* counterfactual pink, mirrors .counterfactual-banner */
+  border-radius: 6px;
+  background: rgba(10, 14, 18, 0.85);
+  font-size: 0.72rem;
+  max-width: 36ch;
+}
+.ghost-banner {
+  color: #f472b6;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+.ghost-clock {
+  color: #8be9fd;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.ghost-readout {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted, #8fa3ad);
+}
