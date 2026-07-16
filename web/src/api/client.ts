@@ -1,6 +1,7 @@
 import type {
   ClassicalGhost,
   ConstantsReport,
+  ForceLawResult,
   JobInfo,
   JobMeta,
   LevelsResponse,
@@ -77,6 +78,17 @@ export function getConstants(m: ConstMultipliers): Promise<ConstantsReport> {
 
 export function getClassical(system: string, n: number): Promise<ClassicalGhost> {
   return getJson(`/api/classical?system=${encodeURIComponent(system)}&n=${n}`);
+}
+
+export function getForceLaw(
+  system: string,
+  p: number,
+  l: number,
+  nStates = 4,
+): Promise<ForceLawResult> {
+  return getJson(
+    `/api/forcelaw?system=${encodeURIComponent(system)}&p=${p}&l=${l}&n_states=${nStates}`,
+  );
 }
 
 export function getSpectrum(

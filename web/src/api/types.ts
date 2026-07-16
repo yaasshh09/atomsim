@@ -164,6 +164,27 @@ export interface ClassicalGhost {
   orbit_count: Quantity;
 }
 
+export interface ForceLawLevel {
+  radial_index: number;
+  energy: Quantity;
+  energy_ev: Quantity;
+}
+
+export interface ReferenceLevel {
+  n: number;
+  energy: Quantity;
+  energy_ev: Quantity;
+}
+
+export interface ForceLawResult {
+  p: number;
+  l: number;
+  z: number;
+  system: SystemInfo;
+  counterfactual: ForceLawLevel[];
+  reference: ReferenceLevel[];
+}
+
 export type JobStatus = "pending" | "running" | "done" | "error";
 
 export interface JobInfo {
