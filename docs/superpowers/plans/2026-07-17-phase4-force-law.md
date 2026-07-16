@@ -282,59 +282,19 @@ Expected: FAIL — 404 responses (route not defined) / `ImportError` for `ForceL
 
 - [ ] **Step 3: Add the schema models**
 
-In `src/atomsim/server/schemas.py`, extend the constants import and add the force-law imports near the other engine imports:
+The eV conversion reuses the existing `app.py._to_ev` (DRY — do NOT add a second copy in `schemas.py`), so these models are plain data holders built by the endpoint, exactly like `FineLevelModel`/`LevelsResponse` already are. In `src/atomsim/server/schemas.py`, add, after the `ClassicalGhostModel` block:
 
 ```python
-from atomsim.constants import BOHR_RADIUS_FM, HARTREE_EV
-from atomsim.numerics.force_law import ForceLawLevel, ForceLawResult, ReferenceLevel
-```
-
-Then add, after the `ClassicalGhostModel` block:
-
-```python
-def _ev(q: Quantity) -> Quantity:
-    """Display conversion hartree -> eV (server boundary only)."""
-    return Quantity(
-        value=q.value * HARTREE_EV,
-        unit="eV",
-        label=q.label + " [eV]",
-        provenance=dataclasses.replace(
-            q.provenance,
-            method=q.provenance.method + "; converted to eV via CODATA Hartree-eV factor",
-            error_estimate=(
-                None if q.provenance.error_estimate is None
-                else q.provenance.error_estimate * HARTREE_EV
-            ),
-        ),
-    )
-
-
 class ForceLawLevelModel(BaseModel):
     radial_index: int
     energy: QuantityModel
     energy_ev: QuantityModel
-
-    @classmethod
-    def from_level(cls, lvl: ForceLawLevel) -> "ForceLawLevelModel":
-        return cls(
-            radial_index=lvl.radial_index,
-            energy=QuantityModel.from_quantity(lvl.energy),
-            energy_ev=QuantityModel.from_quantity(_ev(lvl.energy)),
-        )
 
 
 class ReferenceLevelModel(BaseModel):
     n: int
     energy: QuantityModel
     energy_ev: QuantityModel
-
-    @classmethod
-    def from_level(cls, lvl: ReferenceLevel) -> "ReferenceLevelModel":
-        return cls(
-            n=lvl.n,
-            energy=QuantityModel.from_quantity(lvl.energy),
-            energy_ev=QuantityModel.from_quantity(_ev(lvl.energy)),
-        )
 
 
 class ForceLawModel(BaseModel):
@@ -344,18 +304,9 @@ class ForceLawModel(BaseModel):
     system: SystemModel
     counterfactual: list[ForceLawLevelModel]
     reference: list[ReferenceLevelModel]
-
-    @classmethod
-    def from_result(cls, r: ForceLawResult, sys: System) -> "ForceLawModel":
-        return cls(
-            p=r.p,
-            l=r.l,
-            z=r.z,
-            system=SystemModel.from_system(sys),
-            counterfactual=[ForceLawLevelModel.from_level(x) for x in r.counterfactual],
-            reference=[ReferenceLevelModel.from_level(x) for x in r.reference],
-        )
 ```
+
+No new imports are needed in `schemas.py` (`BaseModel`, `QuantityModel`, `SystemModel` are already defined there).
 
 - [ ] **Step 4: Add the endpoint**
 
@@ -365,9 +316,9 @@ In `src/atomsim/server/app.py`, add to the imports:
 from atomsim.numerics.force_law import P_MAX, P_MIN, force_law_levels
 ```
 
-and add `ForceLawModel` to the `from atomsim.server.schemas import (...)` list.
+and add `ForceLawLevelModel`, `ForceLawModel`, `ReferenceLevelModel` to the existing `from atomsim.server.schemas import (...)` list (which already imports `QuantityModel` and `SystemModel`).
 
-Then, immediately after the `classical_endpoint` function (around line 374), add:
+Then, immediately after the `classical_endpoint` function (around line 374), add the handler. It reuses the module-level `_to_ev` helper already defined in `app.py`, mirroring how the levels endpoint builds its eV quantities:
 
 ```python
     @app.get("/api/forcelaw", response_model=ForceLawModel)
@@ -386,7 +337,28 @@ Then, immediately after the `classical_endpoint` function (around line 374), add
             )
         sys_ = _resolve_system(system)
         result = force_law_levels(p=p, l=l, system=sys_, n_states=n_states)
-        return ForceLawModel.from_result(result, sys_)
+        return ForceLawModel(
+            p=result.p,
+            l=result.l,
+            z=result.z,
+            system=SystemModel.from_system(sys_),
+            counterfactual=[
+                ForceLawLevelModel(
+                    radial_index=c.radial_index,
+                    energy=QuantityModel.from_quantity(c.energy),
+                    energy_ev=QuantityModel.from_quantity(_to_ev(c.energy)),
+                )
+                for c in result.counterfactual
+            ],
+            reference=[
+                ReferenceLevelModel(
+                    n=r.n,
+                    energy=QuantityModel.from_quantity(r.energy),
+                    energy_ev=QuantityModel.from_quantity(_to_ev(r.energy)),
+                )
+                for r in result.reference
+            ],
+        )
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
