@@ -170,19 +170,34 @@ export interface ForceLawLevel {
   energy_ev: Quantity;
 }
 
-export interface ReferenceLevel {
-  n: number;
+export interface ReferenceItem {
+  label: string;
   energy: Quantity;
   energy_ev: Quantity;
 }
 
+export interface Reference {
+  kind: "levels" | "markers";
+  items: ReferenceItem[];
+}
+
+export interface PotentialCurve {
+  r: number[];
+  v_ev: number[];
+  provenance: Provenance;
+}
+
 export interface ForceLawResult {
-  p: number;
+  preset: string;
+  params: Record<string, number>;
   l: number;
   z: number;
   system: SystemInfo;
   counterfactual: ForceLawLevel[];
-  reference: ReferenceLevel[];
+  bound_count: number;
+  requested_count: number;
+  reference: Reference;
+  potential_curve: PotentialCurve;
 }
 
 export type JobStatus = "pending" | "running" | "done" | "error";

@@ -82,13 +82,19 @@ export function getClassical(system: string, n: number): Promise<ClassicalGhost>
 
 export function getForceLaw(
   system: string,
-  p: number,
+  preset: string,
+  params: Record<string, number>,
   l: number,
   nStates = 4,
 ): Promise<ForceLawResult> {
-  return getJson(
-    `/api/forcelaw?system=${encodeURIComponent(system)}&p=${p}&l=${l}&n_states=${nStates}`,
-  );
+  const q = new URLSearchParams({
+    system,
+    preset,
+    l: String(l),
+    n_states: String(nStates),
+  });
+  for (const [k, v] of Object.entries(params)) q.set(k, String(v));
+  return getJson(`/api/forcelaw?${q.toString()}`);
 }
 
 export function getSpectrum(
