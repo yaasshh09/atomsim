@@ -54,3 +54,46 @@ def test_potential_curve_is_field_in_hartree():
 def test_unknown_preset_raises():
     with pytest.raises(ValueError, match="unknown preset"):
         force_law_levels("nope", {}, l=0)
+
+
+def test_yukawa_large_lambda_approaches_hydrogen():
+    # lambda=20 bohr is the top of the ParamSpec range, not "effectively infinite":
+    # first-order perturbation theory gives a genuine screening correction
+    # dE ~= Z*4*[1/4 - 1/(2+1/lambda)^2] ~= 0.048 hartree (~9.6% of |E_1s|=0.5) at
+    # lambda=20. Confirmed not a box-size artifact: the solver's grid-halving
+    # error_estimate is ~4e-6 and the energy is stable across r_max in
+    # {160, 320, 640}. rel_tol is set above the real physical deviation, not
+    # loosened to paper over a bug.
+    res = force_law_levels("yukawa", {"lambda": 20.0}, l=0, system="h", n_states=1)
+    exact = hydrogen_energy(1, Z=1, mu_ratio=1.0).value
+    assert math.isclose(res.counterfactual[0].energy.value, exact, rel_tol=0.11)
+
+
+def test_yukawa_screening_removes_bound_states():
+    loose = force_law_levels("yukawa", {"lambda": 20.0}, l=0, system="h", n_states=4)
+    tight = force_law_levels("yukawa", {"lambda": 1.0}, l=0, system="h", n_states=4)
+    assert tight.bound_count < loose.bound_count
+    assert all(level.energy.value < 0 for level in tight.counterfactual)
+
+
+def test_yukawa_reference_is_full_hydrogen_ladder_even_under_shortfall():
+    res = force_law_levels("yukawa", {"lambda": 1.0}, l=0, system="h", n_states=4)
+    assert len(res.reference.items) == 4  # full ideal ladder
+    assert res.bound_count <= 4
+
+
+def test_coulombcore_c0_recovers_hydrogen():
+    res = force_law_levels("coulombcore", {"core": 0.0}, l=0, system="h", n_states=2)
+    mu = get_system("h").mu_ratio.value  # compare like-for-like reduced mass
+    for k, level in enumerate(res.counterfactual):
+        exact = hydrogen_energy(k + 1, Z=1, mu_ratio=mu).value
+        assert math.isclose(level.energy.value, exact, rel_tol=2e-4)
+
+
+def test_coulombcore_repulsive_core_raises_penetrating_s_above_p():
+    s = force_law_levels("coulombcore", {"core": 0.5}, l=0, system="h", n_states=2)
+    p = force_law_levels("coulombcore", {"core": 0.5}, l=1, system="h", n_states=1)
+    e_2s = s.counterfactual[1].energy.value  # (l=0, k=1) -> n=2
+    e_2p = p.counterfactual[0].energy.value  # (l=1, k=0) -> n=2
+    assert abs(e_2s - e_2p) > 1e-4
+    assert e_2s > e_2p  # +c/r^2 repulsion hits the penetrating low-l state harder

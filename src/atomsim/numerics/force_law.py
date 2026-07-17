@@ -112,7 +112,56 @@ POWERLAW = ForcePreset(
 )
 
 
-PRESETS: dict[str, ForcePreset] = {POWERLAW.key: POWERLAW}
+# ---- Yukawa / screened -------------------------------------------------------
+
+def _yukawa_potential(params: Params, z: int, mu: float) -> PotentialFn:
+    lam = params["lambda"]
+    return lambda r: -(z / r) * np.exp(-r / lam)
+
+
+def _yukawa_rmax(params: Params, z: int, n_states: int) -> float:
+    # a few screening lengths, but at least the Coulomb box for the ideal ladder
+    return max(8.0 * params["lambda"], 20.0 * (n_states + 1) ** 2 / z)
+
+
+YUKAWA = ForcePreset(
+    key="yukawa",
+    params=(ParamSpec("lambda", 0.5, 20.0, 3.0, "bohr"),),
+    uses_Z=True,
+    binding="decay",
+    build_potential=_yukawa_potential,
+    reference=_hydrogen_reference,
+    r_max=_yukawa_rmax,
+)
+
+
+# ---- Coulomb plus 1/r^2 core -------------------------------------------------
+
+def _coulombcore_potential(params: Params, z: int, mu: float) -> PotentialFn:
+    c = params["core"]
+    return lambda r: -z / r + c / r**2
+
+
+def _coulombcore_rmax(params: Params, z: int, n_states: int) -> float:
+    return 20.0 * (n_states + 1) ** 2 / z
+
+
+COULOMBCORE = ForcePreset(
+    key="coulombcore",
+    params=(ParamSpec("core", 0.0, 1.0, 0.2, ""),),
+    uses_Z=True,
+    binding="decay",
+    build_potential=_coulombcore_potential,
+    reference=_hydrogen_reference,
+    r_max=_coulombcore_rmax,
+)
+
+
+PRESETS: dict[str, ForcePreset] = {
+    POWERLAW.key: POWERLAW,
+    YUKAWA.key: YUKAWA,
+    COULOMBCORE.key: COULOMBCORE,
+}
 
 
 # ---- driver ------------------------------------------------------------------
