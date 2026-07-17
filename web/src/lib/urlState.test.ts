@@ -94,6 +94,8 @@ describe("serializeAppUrl", () => {
       planeQuantity: "psi" as const,
       labConst: { hbar: 1, e: 2, m_e: 1, eps0: 4, c: 1 },
       labZ: 3,
+      forceP: 1.0,
+      forceL: 0,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
     expect({ ...URL_DEFAULTS, ...parsed }).toEqual(state);
@@ -104,5 +106,25 @@ describe("serializeAppUrl", () => {
     expect(withGhost.ghost).toBe(true);
     const withoutGhost = parseAppUrl(serializeAppUrl({ ...URL_DEFAULTS, ghost: false }));
     expect({ ...URL_DEFAULTS, ...withoutGhost }.ghost).toBe(false);
+  });
+});
+
+describe("force-law url state", () => {
+  it("round-trips forcelaw view with p and fl", () => {
+    const state = { ...URL_DEFAULTS, view: "forcelaw" as const, forceP: 1.2, forceL: 1 };
+    const round = { ...URL_DEFAULTS, ...parseAppUrl(serializeAppUrl(state)) };
+    expect(round.view).toBe("forcelaw");
+    expect(round.forceP).toBeCloseTo(1.2);
+    expect(round.forceL).toBe(1);
+  });
+
+  it("drops an out-of-range p and a negative fl", () => {
+    const out = parseAppUrl("?p=9&fl=-2");
+    expect(out.forceP).toBeUndefined();
+    expect(out.forceL).toBeUndefined();
+  });
+
+  it("omits p and fl when at defaults", () => {
+    expect(serializeAppUrl({ ...URL_DEFAULTS })).not.toContain("fl=");
   });
 });

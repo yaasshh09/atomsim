@@ -24,6 +24,8 @@ useAppStore.subscribe((s) => {
     planeQuantity: s.planeQuantity,
     labConst: s.labConst,
     labZ: s.labZ,
+    forceP: s.forceP,
+    forceL: s.forceL,
   });
   const next = window.location.pathname + qs;
   if (next !== window.location.pathname + window.location.search) {

@@ -21,6 +21,8 @@ export interface UrlState {
   planeQuantity: PlaneQuantity;
   labConst: ConstMultipliers;
   labZ: number;
+  forceP: number;
+  forceL: number;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -37,12 +39,14 @@ export const URL_DEFAULTS: UrlState = {
   planeQuantity: "density",
   labConst: { hbar: 1, e: 1, m_e: 1, eps0: 1, c: 1 },
   labZ: 1,
+  forceP: 1.0,
+  forceL: 0,
 };
 
 // mirrors the n select in Controls (N_CHOICES max)
 const N_MAX_UI = 6;
 
-const VIEWS: ViewMode[] = ["cloud", "plane", "radial", "levels", "spectrum", "whatif"];
+const VIEWS: ViewMode[] = ["cloud", "plane", "radial", "levels", "spectrum", "whatif", "forcelaw"];
 const COLORS: ColorMode[] = ["solid", "density", "phase"];
 const BASES: Basis[] = ["complex", "real"];
 const NUCLEUS: NucleusMode[] = ["hidden", "true-scale", "marker"];
@@ -126,6 +130,12 @@ export function parseAppUrl(search: string): Partial<UrlState> {
   const z = pickInt(q.get("z"));
   if (z !== undefined) out.labZ = Math.min(Math.max(z, 1), 10);
 
+  const fp = pickFloat(q.get("p"));
+  if (fp !== undefined && fp >= 0.5 && fp <= 1.5) out.forceP = fp;
+
+  const fl = pickInt(q.get("fl"));
+  if (fl !== undefined && fl >= 0) out.forceL = fl;
+
   return out;
 }
 
@@ -149,6 +159,8 @@ export function serializeAppUrl(state: UrlState): string {
     }
   }
   if (state.labZ !== URL_DEFAULTS.labZ) q.set("z", String(state.labZ));
+  if (Math.abs(state.forceP - URL_DEFAULTS.forceP) > 1e-9) q.set("p", String(state.forceP));
+  if (state.forceL !== URL_DEFAULTS.forceL) q.set("fl", String(state.forceL));
   // note: '+' stays percent-encoded (%2B) — a literal '+' in a query string
   // reads back as a space, which would break the he+ round-trip
   const s = q.toString();
