@@ -56,17 +56,25 @@ def test_unknown_preset_raises():
         force_law_levels("nope", {}, l=0)
 
 
-def test_yukawa_large_lambda_approaches_hydrogen():
-    # lambda=20 bohr is the top of the ParamSpec range, not "effectively infinite":
-    # first-order perturbation theory gives a genuine screening correction
-    # dE ~= Z*4*[1/4 - 1/(2+1/lambda)^2] ~= 0.048 hartree (~9.6% of |E_1s|=0.5) at
-    # lambda=20. Confirmed not a box-size artifact: the solver's grid-halving
-    # error_estimate is ~4e-6 and the energy is stable across r_max in
-    # {160, 320, 640}. rel_tol is set above the real physical deviation, not
-    # loosened to paper over a bug.
-    res = force_law_levels("yukawa", {"lambda": 20.0}, l=0, system="h", n_states=1)
-    exact = hydrogen_energy(1, Z=1, mu_ratio=1.0).value
-    assert math.isclose(res.counterfactual[0].energy.value, exact, rel_tol=0.11)
+def test_yukawa_approaches_hydrogen_as_screening_weakens():
+    # Yukawa -> Coulomb as lambda grows. lambda=20 bohr (the ParamSpec max) still
+    # leaves a real ~10% screening shift on the 1s: the leading correction is
+    # dE ~= Z/lambda = 0.05 hartree vs |E_1s| = 0.5. Reaching a 5e-3 absolute match
+    # would need lambda ~ 400 bohr (an absurd UI range), so the honest validation of
+    # the Coulomb limit is the *approach*: every Yukawa 1s is less bound than exact
+    # Coulomb, and larger lambda binds monotonically closer to it.
+    mu = get_system("h").mu_ratio.value
+    exact = hydrogen_energy(1, Z=1, mu_ratio=mu).value
+    e = {
+        lam: force_law_levels("yukawa", {"lambda": lam}, l=0, system="h", n_states=1)
+        .counterfactual[0]
+        .energy.value
+        for lam in (2.0, 6.0, 20.0)
+    }
+    # all bound (E<0) yet above exact Coulomb, and monotone approach from above:
+    assert exact < e[20.0] < e[6.0] < e[2.0] < 0.0
+    # residual screening at the widest lambda is the expected ~10%, not a blow-up:
+    assert abs(e[20.0] - exact) < 0.12 * abs(exact)
 
 
 def test_yukawa_screening_removes_bound_states():
