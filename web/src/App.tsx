@@ -1,5 +1,6 @@
 import { CloudView } from "./components/CloudView";
 import { Controls } from "./components/Controls";
+import { ForceLawView } from "./components/ForceLawView";
 import { GalleryStrip } from "./components/GalleryStrip";
 import { InfoPanel } from "./components/InfoPanel";
 import { LevelsView } from "./components/LevelsView";
@@ -21,6 +22,7 @@ export default function App() {
         {view === "levels" && <LevelsView />}
         {view === "spectrum" && <SpectrumView />}
         {view === "whatif" && <WhatIfView />}
+        {view === "forcelaw" && <ForceLawView />}
         <GalleryStrip />
       </main>
       <Controls />

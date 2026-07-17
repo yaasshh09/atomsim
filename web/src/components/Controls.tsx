@@ -16,6 +16,7 @@ const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
   { value: "levels", label: "Energy levels" },
   { value: "spectrum", label: "Spectrum vs NIST" },
   { value: "whatif", label: "What-If: constants" },
+  { value: "forcelaw", label: "What-If: force law" },
 ];
 
 export function Controls() {
