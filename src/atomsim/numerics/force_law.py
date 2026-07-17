@@ -1,93 +1,203 @@
-"""What-If force law: energy levels under a counterfactual V(r) = -Z / r^p.
+"""What-If force laws: energy levels under a counterfactual central potential.
 
-Only the 1/r Coulomb shape makes hydrogen's energy depend on n alone; bending the
-exponent p away from 1 lifts the accidental l-degeneracy. This module drives the
-numerical radial solver with the power-law potential (NUMERICAL) and pairs each
-level with the EXACT closed-form hydrogen level it maps to, so the contrast is an
-honest EXACT-vs-COUNTERFACTUAL one. p is clamped to [0.5, 1.5], comfortably inside
-the fall-to-center threshold (p -> 2), so every returned state is box-converged.
+A preset registry drives the numerical radial solver with different V(r) shapes,
+pairs each with an honest per-preset reference (EXACT hydrogen, EXACT harmonic-
+oscillator levels, or structural markers), and returns a sampled V(r) curve so
+the view can draw the potential itself. See docs/superpowers/specs/
+2026-07-17-phase5-force-law-presets-design.md.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 import numpy as np
 
 from atomsim.analytic.hydrogen import energy as hydrogen_energy
 from atomsim.numerics.radial_solver import solve_radial_with_error
-from atomsim.provenance import Quantity
+from atomsim.provenance import Fidelity, Field, Provenance, Quantity
 from atomsim.systems import System, get_system
 
 P_MIN = 0.5
 P_MAX = 1.5
+CURVE_POINTS = 256
+
+Params = dict[str, float]
+PotentialFn = Callable[[np.ndarray], np.ndarray]
+
+
+@dataclass(frozen=True)
+class ParamSpec:
+    name: str
+    min: float
+    max: float
+    default: float
+    unit: str
+
+
+@dataclass(frozen=True)
+class ReferenceItem:
+    label: str
+    energy: Quantity  # EXACT, hartree
+
+
+@dataclass(frozen=True)
+class Reference:
+    kind: str  # "levels" | "markers"
+    items: tuple[ReferenceItem, ...]
 
 
 @dataclass(frozen=True)
 class ForceLawLevel:
-    radial_index: int   # 0-based node count k
-    energy: Quantity    # NUMERICAL, hartree, carries a grid-halving error estimate
-
-
-@dataclass(frozen=True)
-class ReferenceLevel:
-    n: int
-    energy: Quantity    # EXACT closed-form hydrogen level, hartree
+    radial_index: int
+    energy: Quantity  # NUMERICAL, hartree, carries grid-halving error
 
 
 @dataclass(frozen=True)
 class ForceLawResult:
-    p: float
+    preset_key: str
+    params: Params
     l: int
     z: int
     system_key: str
     counterfactual: tuple[ForceLawLevel, ...]
-    reference: tuple[ReferenceLevel, ...]
+    bound_count: int
+    requested_count: int
+    reference: Reference
+    potential_curve: Field  # hartree vs bohr, EXACT
 
 
-def force_law_levels(
-    p: float, l: int, system: str | System = "h", n_states: int = 4
-) -> ForceLawResult:
-    if not P_MIN <= p <= P_MAX:
-        raise ValueError(f"p must be in [{P_MIN}, {P_MAX}], got {p}")
+@dataclass(frozen=True)
+class ForcePreset:
+    key: str
+    params: tuple[ParamSpec, ...]
+    uses_Z: bool
+    binding: str  # "decay" (bound iff E<0) | "confining" (all bound)
+    build_potential: Callable[[Params, int, float], PotentialFn]
+    reference: Callable[[Params, int, float, int, int], Reference]
+    r_max: Callable[[Params, int, int], float]
+
+
+# ---- hydrogen-ladder reference shared by the Coulomb-family presets ----------
+
+def _hydrogen_reference(params: Params, z: int, mu: float, l: int, n_states: int) -> Reference:
+    items = tuple(
+        ReferenceItem(
+            label=f"n={l + 1 + k}",
+            energy=hydrogen_energy(l + 1 + k, Z=z, mu_ratio=mu),
+        )
+        for k in range(n_states)
+    )
+    return Reference(kind="levels", items=items)
+
+
+# ---- power-law ---------------------------------------------------------------
+
+def _powerlaw_potential(params: Params, z: int, mu: float) -> PotentialFn:
+    p = params["p"]
+    return lambda r: -z / r**p
+
+
+def _powerlaw_rmax(params: Params, z: int, n_states: int) -> float:
+    return 20.0 * (n_states + 1) ** 2 / z
+
+
+POWERLAW = ForcePreset(
+    key="powerlaw",
+    params=(ParamSpec("p", P_MIN, P_MAX, 1.0, ""),),
+    uses_Z=True,
+    binding="decay",
+    build_potential=_powerlaw_potential,
+    reference=_hydrogen_reference,
+    r_max=_powerlaw_rmax,
+)
+
+
+PRESETS: dict[str, ForcePreset] = {POWERLAW.key: POWERLAW}
+
+
+# ---- driver ------------------------------------------------------------------
+
+def _validate(preset: ForcePreset, params: Params, l: int, n_states: int) -> None:
     if l < 0:
         raise ValueError(f"orbital quantum number l must be >= 0, got {l}")
     if n_states < 1:
         raise ValueError(f"n_states must be >= 1, got {n_states}")
+    for spec in preset.params:
+        if spec.name not in params:
+            raise ValueError(f"preset {preset.key!r} requires parameter {spec.name!r}")
+        v = params[spec.name]
+        if not spec.min <= v <= spec.max:
+            raise ValueError(
+                f"{spec.name} must be in [{spec.min}, {spec.max}], got {v}"
+            )
 
-    # Accept a bare key (registered systems) or an already-resolved System, so the
-    # server can hand us generic hydrogen-like ions (z{N}) that get_system omits.
+
+def _bound(preset: ForcePreset, energy: Quantity) -> bool:
+    return preset.binding == "confining" or energy.value < 0.0
+
+
+def _tag(energy: Quantity, note: str) -> Quantity:
+    return replace(
+        energy,
+        provenance=replace(energy.provenance, method=energy.provenance.method + note),
+    )
+
+
+def _sample_curve(potential: PotentialFn, r_max: float, note: str) -> Field:
+    r = np.linspace(r_max / CURVE_POINTS, r_max, CURVE_POINTS)
+    v = np.asarray(potential(r), dtype=float)
+    return Field(
+        values=v,
+        grid=r,
+        unit="hartree",
+        grid_unit="bohr",
+        label="V(r)",
+        provenance=Provenance(
+            fidelity=Fidelity.EXACT,
+            method=f"analytic potential sampled on {CURVE_POINTS}-point grid{note}",
+        ),
+    )
+
+
+def force_law_levels(
+    preset: str,
+    params: Params,
+    l: int,
+    system: str | System = "h",
+    n_states: int = 4,
+) -> ForceLawResult:
+    if preset not in PRESETS:
+        raise ValueError(f"unknown preset {preset!r}; known: {sorted(PRESETS)}")
+    spec = PRESETS[preset]
+    _validate(spec, params, l, n_states)
+
     sys = system if isinstance(system, System) else get_system(system)
     z = sys.Z
     mu = sys.mu_ratio.value
 
-    def potential(r: np.ndarray) -> np.ndarray:
-        return -z / r**p
+    potential = spec.build_potential(params, z, mu)
+    r_max = spec.r_max(params, z, n_states)
+    sol = solve_radial_with_error(potential, l=l, mu_ratio=mu, n_states=n_states, r_max=r_max)
 
-    sol = solve_radial_with_error(potential, l=l, mu_ratio=mu, n_states=n_states)
+    note = f"; counterfactual preset {preset} params={params}"
+    bound: list[ForceLawLevel] = []
+    for k in range(n_states):
+        e = sol.energies[k]
+        if _bound(spec, e):
+            bound.append(ForceLawLevel(radial_index=len(bound), energy=_tag(e, note)))
 
-    # Stamp the counterfactual potential into each level's provenance so the
-    # NUMERICAL Quantity is self-describing in isolation: the solver only records
-    # its own finite-difference method, not that V(r) was bent away from Coulomb.
-    note = f"; counterfactual power-law potential V=-Z/r^{p:g}"
+    reference = spec.reference(params, z, mu, l, n_states)
+    curve = _sample_curve(potential, r_max, note)
 
-    def _tag(energy: Quantity) -> Quantity:
-        return replace(
-            energy,
-            provenance=replace(energy.provenance, method=energy.provenance.method + note),
-        )
-
-    counterfactual = tuple(
-        ForceLawLevel(radial_index=k, energy=_tag(sol.energies[k])) for k in range(n_states)
-    )
-    # radial index k <-> hydrogen level n = l + 1 + k (since n_r = n - l - 1 = k)
-    reference = tuple(
-        ReferenceLevel(n=l + 1 + k, energy=hydrogen_energy(l + 1 + k, Z=z, mu_ratio=mu))
-        for k in range(n_states)
-    )
     return ForceLawResult(
-        p=p,
+        preset_key=preset,
+        params=dict(params),
         l=l,
         z=z,
         system_key=sys.key,
-        counterfactual=counterfactual,
+        counterfactual=tuple(bound),
+        bound_count=len(bound),
+        requested_count=n_states,
         reference=reference,
+        potential_curve=curve,
     )
