@@ -2,8 +2,10 @@ import math
 
 import numpy as np
 import pytest
+from scipy.optimize import brentq
 
 from atomsim.analytic.hydrogen import energy as hydrogen_energy
+from atomsim.analytic.oscillator import oscillator_energy
 from atomsim.numerics.force_law import force_law_levels
 from atomsim.provenance import Fidelity
 from atomsim.systems import get_system
@@ -105,3 +107,54 @@ def test_coulombcore_repulsive_core_raises_penetrating_s_above_p():
     e_2p = p.counterfactual[0].energy.value  # (l=1, k=0) -> n=2
     assert abs(e_2s - e_2p) > 1e-4
     assert e_2s > e_2p  # +c/r^2 repulsion hits the penetrating low-l state harder
+
+
+def test_harmonic_matches_exact_qho():
+    for omega in (0.3, 0.6):
+        for l in (0, 1):
+            res = force_law_levels("harmonic", {"omega": omega}, l=l, system="h", n_states=3)
+            assert res.bound_count == 3  # confining: all bound
+            for k, level in enumerate(res.counterfactual):
+                exact = oscillator_energy(k, l, omega).value
+                assert math.isclose(level.energy.value, exact, rel_tol=2e-3)
+
+
+def test_harmonic_reference_is_qho_levels():
+    res = force_law_levels("harmonic", {"omega": 0.5}, l=0, system="h", n_states=2)
+    assert res.reference.kind == "levels"
+    assert all(i.energy.provenance.fidelity is Fidelity.EXACT for i in res.reference.items)
+    assert math.isclose(res.reference.items[0].energy.value, 0.5 * 1.5, rel_tol=1e-9)
+
+
+def _well_ground_state(v0: float, a: float, mu: float) -> float:
+    # s-wave spherical well: k1 cot(k1 a) = -k2, E in (-v0, 0), independent of the FD solver
+    def f(E):
+        k1 = math.sqrt(2 * mu * (E + v0))
+        k2 = math.sqrt(-2 * mu * E)
+        return k1 / math.tan(k1 * a) + k2
+    lo, hi = -v0 + 1e-9, -1e-9
+    return brentq(f, lo, hi)
+
+
+def test_finitewell_ground_state_matches_transcendental():
+    v0, a = 2.0, 3.0
+    res = force_law_levels("finitewell", {"v0": v0, "a": a}, l=0, system="h", n_states=3)
+    assert res.bound_count >= 1
+    mu = get_system("h").mu_ratio.value  # compare like-for-like reduced mass
+    ref = _well_ground_state(v0, a, mu=mu)
+    assert math.isclose(res.counterfactual[0].energy.value, ref, rel_tol=5e-3)
+    for level in res.counterfactual:
+        assert -v0 < level.energy.value < 0
+
+
+def test_finitewell_markers_reference():
+    res = force_law_levels("finitewell", {"v0": 2.0, "a": 3.0}, l=0, system="h", n_states=2)
+    assert res.reference.kind == "markers"
+    labels = {i.label for i in res.reference.items}
+    assert labels == {"well floor", "continuum threshold"}
+
+
+def test_finitewell_too_shallow_has_no_bound_states():
+    # sqrt(2*mu*v0)*a < pi/2  =>  no s-wave bound state
+    res = force_law_levels("finitewell", {"v0": 0.1, "a": 0.5}, l=0, system="h", n_states=3)
+    assert res.bound_count == 0

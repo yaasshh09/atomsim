@@ -7,12 +7,14 @@ the view can draw the potential itself. See docs/superpowers/specs/
 2026-07-17-phase5-force-law-presets-design.md.
 """
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 import numpy as np
 
 from atomsim.analytic.hydrogen import energy as hydrogen_energy
+from atomsim.analytic.oscillator import oscillator_energy
 from atomsim.numerics.radial_solver import solve_radial_with_error
 from atomsim.provenance import Fidelity, Field, Provenance, Quantity
 from atomsim.systems import System, get_system
@@ -157,10 +159,93 @@ COULOMBCORE = ForcePreset(
 )
 
 
+# ---- harmonic oscillator -----------------------------------------------------
+
+def _harmonic_potential(params: Params, z: int, mu: float) -> PotentialFn:
+    omega = params["omega"]
+    k = mu * omega**2
+    return lambda r: 0.5 * k * r**2
+
+
+def _harmonic_reference(params: Params, z: int, mu: float, l: int, n_states: int) -> Reference:
+    omega = params["omega"]
+    items = tuple(
+        ReferenceItem(label=f"k={k}", energy=oscillator_energy(k, l, omega))
+        for k in range(n_states)
+    )
+    return Reference(kind="levels", items=items)
+
+
+def _harmonic_rmax(params: Params, z: int, n_states: int) -> float:
+    # classical turning point of the highest level, with headroom:
+    # E ~ omega(2(n_states-1)+3/2); r_turn = sqrt(2E/(mu omega^2)) -> use mu=1 upper bound
+    omega = params["omega"]
+    e_top = omega * (2 * (n_states - 1) + 1.5)
+    return 4.0 * math.sqrt(2.0 * e_top / omega**2)
+
+
+HARMONIC = ForcePreset(
+    key="harmonic",
+    params=(ParamSpec("omega", 0.05, 1.0, 0.3, ""),),
+    uses_Z=False,
+    binding="confining",
+    build_potential=_harmonic_potential,
+    reference=_harmonic_reference,
+    r_max=_harmonic_rmax,
+)
+
+
+# ---- finite spherical well ---------------------------------------------------
+
+def _finitewell_potential(params: Params, z: int, mu: float) -> PotentialFn:
+    v0 = params["v0"]
+    a = params["a"]
+    return lambda r: np.where(r < a, -v0, 0.0)
+
+
+def _finitewell_reference(params: Params, z: int, mu: float, l: int, n_states: int) -> Reference:
+    v0 = params["v0"]
+    marker = Provenance(
+        fidelity=Fidelity.EXACT,
+        method="finite-well structural marker (definitional given V0, a)",
+    )
+    items = (
+        ReferenceItem(
+            label="well floor",
+            energy=Quantity(value=-v0, unit="hartree", label="-V0", provenance=marker),
+        ),
+        ReferenceItem(
+            label="continuum threshold",
+            energy=Quantity(value=0.0, unit="hartree", label="E=0", provenance=marker),
+        ),
+    )
+    return Reference(kind="markers", items=items)
+
+
+def _finitewell_rmax(params: Params, z: int, n_states: int) -> float:
+    return max(6.0 * params["a"], 40.0)
+
+
+FINITEWELL = ForcePreset(
+    key="finitewell",
+    params=(
+        ParamSpec("v0", 0.1, 5.0, 2.0, "hartree"),
+        ParamSpec("a", 0.5, 10.0, 3.0, "bohr"),
+    ),
+    uses_Z=False,
+    binding="decay",
+    build_potential=_finitewell_potential,
+    reference=_finitewell_reference,
+    r_max=_finitewell_rmax,
+)
+
+
 PRESETS: dict[str, ForcePreset] = {
     POWERLAW.key: POWERLAW,
     YUKAWA.key: YUKAWA,
     COULOMBCORE.key: COULOMBCORE,
+    HARMONIC.key: HARMONIC,
+    FINITEWELL.key: FINITEWELL,
 }
 
 
