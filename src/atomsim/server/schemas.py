@@ -203,19 +203,34 @@ class ForceLawLevelModel(BaseModel):
     energy_ev: QuantityModel
 
 
-class ReferenceLevelModel(BaseModel):
-    n: int
+class ReferenceItemModel(BaseModel):
+    label: str
     energy: QuantityModel
     energy_ev: QuantityModel
 
 
+class ReferenceModel(BaseModel):
+    kind: Literal["levels", "markers"]
+    items: list[ReferenceItemModel]
+
+
+class PotentialCurveModel(BaseModel):
+    r: list[float]        # bohr
+    v_ev: list[float]     # eV
+    provenance: ProvenanceModel
+
+
 class ForceLawModel(BaseModel):
-    p: float
+    preset: str
+    params: dict[str, float]
     l: int
     z: int
     system: SystemModel
     counterfactual: list[ForceLawLevelModel]
-    reference: list[ReferenceLevelModel]
+    bound_count: int
+    requested_count: int
+    reference: ReferenceModel
+    potential_curve: PotentialCurveModel
 
 
 class LineModel(BaseModel):

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -27,7 +27,7 @@ from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
 from atomsim.classical import classical_ghost
 from atomsim.constants import ALPHA, BOHR_RADIUS_PM, HARTREE_EV
 from atomsim.constants_lab import analyze_constants
-from atomsim.numerics.force_law import P_MAX, P_MIN, force_law_levels
+from atomsim.numerics.force_law import PRESETS, force_law_levels
 from atomsim.plane import PlaneGrid, plane_grid
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
@@ -41,9 +41,11 @@ from atomsim.server.schemas import (
     ForceLawLevelModel,
     ForceLawModel,
     LineModel,
+    PotentialCurveModel,
     ProvenanceModel,
     QuantityModel,
-    ReferenceLevelModel,
+    ReferenceItemModel,
+    ReferenceModel,
     SystemModel,
 )
 from atomsim.server.thumbnails import render_thumbnail
@@ -379,11 +381,21 @@ def create_app() -> FastAPI:
 
     @app.get("/api/forcelaw", response_model=ForceLawModel)
     def forcelaw_endpoint(
-        p: float = 1.0, l: int = 0, system: str = "h", n_states: int = 4
+        preset: str = "powerlaw",
+        l: int = 0,
+        system: str = "h",
+        n_states: int = 4,
+        p: float = 1.0,
+        lambda_: float = Query(default=3.0, alias="lambda"),
+        omega: float = 0.3,
+        v0: float = 2.0,
+        a: float = 3.0,
+        core: float = 0.2,
     ) -> ForceLawModel:
-        if not P_MIN <= p <= P_MAX:
+        if preset not in PRESETS:
             raise HTTPException(
-                status_code=422, detail=f"p must be in [{P_MIN}, {P_MAX}], got {p}"
+                status_code=422,
+                detail=f"unknown preset {preset!r}; known: {sorted(PRESETS)}",
             )
         if l < 0:
             raise HTTPException(status_code=422, detail=f"l must be >= 0, got {l}")
@@ -391,10 +403,20 @@ def create_app() -> FastAPI:
             raise HTTPException(
                 status_code=422, detail=f"n_states must be in [1, 8], got {n_states}"
             )
+        supplied = {
+            "p": p, "lambda": lambda_, "omega": omega, "v0": v0, "a": a, "core": core,
+        }
+        params = {spec.name: supplied[spec.name] for spec in PRESETS[preset].params}
         sys_ = _resolve_system(system)
-        result = force_law_levels(p=p, l=l, system=sys_, n_states=n_states)
+        try:
+            result = force_law_levels(preset, params, l=l, system=sys_, n_states=n_states)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        curve = result.potential_curve
         return ForceLawModel(
-            p=result.p,
+            preset=result.preset_key,
+            params=result.params,
             l=result.l,
             z=result.z,
             system=SystemModel.from_system(sys_),
@@ -406,14 +428,30 @@ def create_app() -> FastAPI:
                 )
                 for c in result.counterfactual
             ],
-            reference=[
-                ReferenceLevelModel(
-                    n=r.n,
-                    energy=QuantityModel.from_quantity(r.energy),
-                    energy_ev=QuantityModel.from_quantity(_to_ev(r.energy)),
-                )
-                for r in result.reference
-            ],
+            bound_count=result.bound_count,
+            requested_count=result.requested_count,
+            reference=ReferenceModel(
+                kind=result.reference.kind,
+                items=[
+                    ReferenceItemModel(
+                        label=item.label,
+                        energy=QuantityModel.from_quantity(item.energy),
+                        energy_ev=QuantityModel.from_quantity(_to_ev(item.energy)),
+                    )
+                    for item in result.reference.items
+                ],
+            ),
+            potential_curve=PotentialCurveModel(
+                r=curve.grid.tolist(),
+                v_ev=(curve.values * HARTREE_EV).tolist(),
+                provenance=ProvenanceModel.from_provenance(
+                    dataclasses.replace(
+                        curve.provenance,
+                        method=curve.provenance.method
+                        + "; converted to eV via CODATA Hartree-eV factor",
+                    )
+                ),
+            ),
         )
 
     @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)
