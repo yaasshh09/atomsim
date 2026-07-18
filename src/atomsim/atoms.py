@@ -1,0 +1,123 @@
+"""Elements, subshells, and Aufbau configurations for screened atoms (Phase 6).
+
+Pure data and combinatorics — no physics engine. A Configuration is an ordered
+tuple of ((n, l), occupancy) in Madelung filling order. The screened potential
+depends only on (Z, N); the configuration decides which computed orbitals are
+occupied and thus the summed energy. See docs/superpowers/specs/
+2026-07-18-phase6-screened-atoms-design.md.
+"""
+
+from dataclasses import dataclass
+
+SUBSHELL_LABELS = "spdfgh"
+
+Subshell = tuple[int, int]                       # (n, l)
+Configuration = tuple[tuple[Subshell, int], ...]  # ordered, non-zero shells
+
+
+def subshell_capacity(l: int) -> int:
+    return 2 * (2 * l + 1)
+
+
+def _madelung_order() -> list[Subshell]:
+    """(n, l) shells sorted by (n + l, n) — the Madelung/Aufbau rule."""
+    shells = [(n, l) for n in range(1, 8) for l in range(n)]
+    shells.sort(key=lambda nl: (nl[0] + nl[1], nl[0]))
+    return shells
+
+
+_MADELUNG = _madelung_order()
+
+
+def aufbau_configuration(n_electrons: int) -> Configuration:
+    if n_electrons < 1:
+        raise ValueError(f"n_electrons must be >= 1, got {n_electrons}")
+    remaining = n_electrons
+    out: list[tuple[Subshell, int]] = []
+    for n, l in _MADELUNG:
+        if remaining <= 0:
+            break
+        fill = min(subshell_capacity(l), remaining)
+        out.append(((n, l), fill))
+        remaining -= fill
+    if remaining > 0:
+        raise ValueError(f"{n_electrons} electrons exceeds supported shells")
+    return tuple(out)
+
+
+def format_config(config: Configuration) -> str:
+    return " ".join(f"{n}{SUBSHELL_LABELS[l]}{occ}" for (n, l), occ in config)
+
+
+def parse_config(text: str) -> Configuration:
+    out: list[tuple[Subshell, int]] = []
+    for tok in text.split():
+        n = int(tok[0])
+        l = SUBSHELL_LABELS.index(tok[1])
+        occ = int(tok[2:])
+        out.append(((n, l), occ))
+    return tuple(out)
+
+
+def total_electrons(config: Configuration) -> int:
+    return sum(occ for _, occ in config)
+
+
+def is_ground(config: Configuration) -> bool:
+    return config == aufbau_configuration(total_electrons(config))
+
+
+def validate_config(config: Configuration) -> None:
+    for (n, l), occ in config:
+        if n <= l:
+            raise ValueError(f"n must be > l for a real subshell, got n={n}, l={l}")
+        if occ < 0:
+            raise ValueError(f"occupancy must be >= 0, got {occ}")
+        if occ > subshell_capacity(l):
+            raise ValueError(
+                f"occupancy {occ} exceeds capacity {subshell_capacity(l)} for l={l}"
+            )
+
+
+@dataclass(frozen=True)
+class Element:
+    z: int
+    symbol: str
+    name: str
+
+
+ELEMENTS: tuple[Element, ...] = (
+    Element(1, "H", "Hydrogen"), Element(2, "He", "Helium"),
+    Element(3, "Li", "Lithium"), Element(4, "Be", "Beryllium"),
+    Element(5, "B", "Boron"), Element(6, "C", "Carbon"),
+    Element(7, "N", "Nitrogen"), Element(8, "O", "Oxygen"),
+    Element(9, "F", "Fluorine"), Element(10, "Ne", "Neon"),
+    Element(11, "Na", "Sodium"), Element(12, "Mg", "Magnesium"),
+    Element(13, "Al", "Aluminium"), Element(14, "Si", "Silicon"),
+    Element(15, "P", "Phosphorus"), Element(16, "S", "Sulfur"),
+    Element(17, "Cl", "Chlorine"), Element(18, "Ar", "Argon"),
+)
+
+_BY_SYMBOL = {e.symbol: e for e in ELEMENTS}
+_BY_Z = {e.z: e for e in ELEMENTS}
+
+# Named screened-atom presets are neutral He..Ar (H stays hydrogenic/analytic).
+ATOM_KEYS: tuple[str, ...] = tuple(e.symbol.lower() for e in ELEMENTS if e.z >= 2)
+
+
+def element_by_symbol(sym: str) -> Element:
+    return _BY_SYMBOL[sym]
+
+
+def element_by_z(z: int) -> Element:
+    return _BY_Z[z]
+
+
+def is_atom_key(key: str) -> bool:
+    return key in ATOM_KEYS
+
+
+def atom_for_key(key: str) -> Element:
+    if not is_atom_key(key):
+        raise KeyError(f"unknown atom key {key!r}; known: {ATOM_KEYS}")
+    return _BY_SYMBOL[key.capitalize()]
