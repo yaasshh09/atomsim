@@ -108,6 +108,16 @@ engine (`src/atomsim/`) and a React/Three.js app (`web/src/`).
 - New physics gets a validation test (analytic ground truth, KS test, or
   grid-convergence), not just a smoke test — that is how honesty is checked.
 
+### Working agreement
+
+- **Always leave the tree committed and push-ready.** When a task or phase
+  finishes, every change must be committed on the feature branch (nothing
+  staged-but-uncommitted, nothing untracked that belongs in the repo) so the
+  user can push it straight onto `main` without extra steps. Commit as you go,
+  one logical change per commit; never end a turn with a dirty tree unless the
+  user asked to hold off. Don't open PRs or push unless asked — just keep it
+  landable. Follow commit messages with no AI attribution (see memory).
+
 ## Project docs
 
 Specs and phase plans live under `docs/superpowers/`. The engine is Phase 1
