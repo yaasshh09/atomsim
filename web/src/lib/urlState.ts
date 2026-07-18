@@ -4,6 +4,7 @@
 import type { Basis, ConstMultipliers, PlaneQuantity } from "../api/client";
 import type { ColorMode, ViewMode } from "../state/store";
 import type { NucleusMode } from "./nucleus";
+import { PRESET_PARAMS, clampParam, defaultParams, type ForcePreset } from "./forceLaw";
 import { clampState } from "./quantum";
 import { CONST_MAX, CONST_MIN, CONSTANT_KEYS, type ConstantKey } from "./whatif";
 
@@ -21,7 +22,8 @@ export interface UrlState {
   planeQuantity: PlaneQuantity;
   labConst: ConstMultipliers;
   labZ: number;
-  forceP: number;
+  forcePreset: ForcePreset;
+  forceParams: Record<string, number>;
   forceL: number;
 }
 
@@ -39,7 +41,8 @@ export const URL_DEFAULTS: UrlState = {
   planeQuantity: "density",
   labConst: { hbar: 1, e: 1, m_e: 1, eps0: 1, c: 1 },
   labZ: 1,
-  forceP: 1.0,
+  forcePreset: "powerlaw",
+  forceParams: defaultParams("powerlaw"),
   forceL: 0,
 };
 
@@ -51,6 +54,13 @@ const COLORS: ColorMode[] = ["solid", "density", "phase"];
 const BASES: Basis[] = ["complex", "real"];
 const NUCLEUS: NucleusMode[] = ["hidden", "true-scale", "marker"];
 const PLANES: PlaneQuantity[] = ["density", "psi"];
+const FORCE_PRESETS: ForcePreset[] = [
+  "powerlaw",
+  "yukawa",
+  "harmonic",
+  "finitewell",
+  "coulombcore",
+];
 const SYSTEM_KEY = /^[a-z0-9+-]{1,16}$/;
 
 // short URL names for the five constant multipliers (m_e -> "me")
@@ -130,8 +140,26 @@ export function parseAppUrl(search: string): Partial<UrlState> {
   const z = pickInt(q.get("z"));
   if (z !== undefined) out.labZ = Math.min(Math.max(z, 1), 10);
 
-  const fp = pickFloat(q.get("p"));
-  if (fp !== undefined && fp >= 0.5 && fp <= 1.5) out.forceP = fp;
+  // Force-law preset + params: one axis independent of the main physics. The
+  // preset selects which param names are live; each is validated and clamped to
+  // its own spec range, missing params fall back to the preset defaults. Fields
+  // are only written when the URL actually mentions the force law (a preset or
+  // one of its params), so an empty query stays an empty override set.
+  const presetRaw = q.get("preset");
+  const preset = pickEnum(presetRaw, FORCE_PRESETS) ?? "powerlaw";
+  const params = defaultParams(preset);
+  let sawForceParam = false;
+  for (const spec of PRESET_PARAMS[preset]) {
+    const v = pickFloat(q.get(spec.name));
+    if (v !== undefined) {
+      params[spec.name] = clampParam(spec, v);
+      sawForceParam = true;
+    }
+  }
+  if ((presetRaw !== null && pickEnum(presetRaw, FORCE_PRESETS) !== undefined) || sawForceParam) {
+    out.forcePreset = preset;
+    out.forceParams = params;
+  }
 
   const fl = pickInt(q.get("fl"));
   if (fl !== undefined && fl >= 0) out.forceL = fl;
@@ -159,7 +187,11 @@ export function serializeAppUrl(state: UrlState): string {
     }
   }
   if (state.labZ !== URL_DEFAULTS.labZ) q.set("z", String(state.labZ));
-  if (Math.abs(state.forceP - URL_DEFAULTS.forceP) > 1e-9) q.set("p", String(state.forceP));
+  if (state.forcePreset !== URL_DEFAULTS.forcePreset) q.set("preset", state.forcePreset);
+  for (const spec of PRESET_PARAMS[state.forcePreset]) {
+    const v = state.forceParams[spec.name];
+    if (v !== undefined && Math.abs(v - spec.default) > 1e-9) q.set(spec.name, String(v));
+  }
   if (state.forceL !== URL_DEFAULTS.forceL) q.set("fl", String(state.forceL));
   // note: '+' stays percent-encoded (%2B) — a literal '+' in a query string
   // reads back as a space, which would break the he+ round-trip

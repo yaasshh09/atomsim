@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultParams } from "./forceLaw";
 import { URL_DEFAULTS, parseAppUrl, serializeAppUrl } from "./urlState";
 
 describe("parseAppUrl", () => {
@@ -94,7 +95,8 @@ describe("serializeAppUrl", () => {
       planeQuantity: "psi" as const,
       labConst: { hbar: 1, e: 2, m_e: 1, eps0: 4, c: 1 },
       labZ: 3,
-      forceP: 1.0,
+      forcePreset: "powerlaw" as const,
+      forceParams: { p: 1.0 },
       forceL: 0,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
@@ -110,21 +112,56 @@ describe("serializeAppUrl", () => {
 });
 
 describe("force-law url state", () => {
-  it("round-trips forcelaw view with p and fl", () => {
-    const state = { ...URL_DEFAULTS, view: "forcelaw" as const, forceP: 1.2, forceL: 1 };
-    const round = { ...URL_DEFAULTS, ...parseAppUrl(serializeAppUrl(state)) };
-    expect(round.view).toBe("forcelaw");
-    expect(round.forceP).toBeCloseTo(1.2);
-    expect(round.forceL).toBe(1);
+  it("round-trips a yukawa force-law deep link", () => {
+    const state = {
+      ...URL_DEFAULTS,
+      view: "forcelaw" as const,
+      forcePreset: "yukawa" as const,
+      forceParams: { lambda: 5 },
+      forceL: 1,
+    };
+    const q = serializeAppUrl(state);
+    expect(q).toContain("preset=yukawa");
+    expect(q).toContain("lambda=5");
+    const back = { ...URL_DEFAULTS, ...parseAppUrl(q) };
+    expect(back.forcePreset).toBe("yukawa");
+    expect(back.forceParams.lambda).toBe(5);
+    expect(back.forceL).toBe(1);
   });
 
-  it("drops an out-of-range p and a negative fl", () => {
-    const out = parseAppUrl("?p=9&fl=-2");
-    expect(out.forceP).toBeUndefined();
+  it("omits preset for the default power-law and reads p", () => {
+    const state = {
+      ...URL_DEFAULTS,
+      view: "forcelaw" as const,
+      forcePreset: "powerlaw" as const,
+      forceParams: { p: 1.2 },
+      forceL: 0,
+    };
+    const q = serializeAppUrl(state);
+    expect(q).not.toContain("preset=");
+    expect(q).toContain("p=1.2");
+    expect(parseAppUrl(q).forceParams?.p).toBe(1.2);
+  });
+
+  it("clamps an out-of-range param from the URL", () => {
+    const back = parseAppUrl("?view=forcelaw&preset=yukawa&lambda=999");
+    expect(back.forceParams?.lambda).toBe(20); // spec max
+  });
+
+  it("falls back to preset defaults when a param is missing", () => {
+    const back = parseAppUrl("?view=forcelaw&preset=finitewell&v0=1.5");
+    expect(back.forceParams?.v0).toBe(1.5);
+    expect(back.forceParams?.a).toBe(defaultParams("finitewell").a); // default
+  });
+
+  it("drops a negative fl and keeps forcelaw view otherwise clean", () => {
+    const out = parseAppUrl("?fl=-2");
     expect(out.forceL).toBeUndefined();
   });
 
-  it("omits p and fl when at defaults", () => {
-    expect(serializeAppUrl({ ...URL_DEFAULTS })).not.toContain("fl=");
+  it("omits preset and fl when at defaults", () => {
+    const q = serializeAppUrl({ ...URL_DEFAULTS });
+    expect(q).not.toContain("fl=");
+    expect(q).not.toContain("preset=");
   });
 });
