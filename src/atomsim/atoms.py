@@ -101,8 +101,18 @@ ELEMENTS: tuple[Element, ...] = (
 _BY_SYMBOL = {e.symbol: e for e in ELEMENTS}
 _BY_Z = {e.z: e for e in ELEMENTS}
 
-# Named screened-atom presets are neutral He..Ar (H stays hydrogenic/analytic).
-ATOM_KEYS: tuple[str, ...] = tuple(e.symbol.lower() for e in ELEMENTS if e.z >= 2)
+# Elements with no published neutral GSZ screening parameters. Szydlik & Green,
+# Phys. Rev. A 9, 1885 (1974), Table I tabulates neutral atoms He..P and Ar, but
+# skips neutral S and Cl (their 3s^2 3p^4 / 3p^5 blocks list only Ar^2+ / Ar^+).
+# Rather than invent parameters, we omit these atoms from the preset library — the
+# prime directive forbids quietly shipping physics we cannot source.
+NO_GSZ_PARAMETERS: frozenset[int] = frozenset({16, 17})  # S, Cl
+
+# Named screened-atom presets are neutral He..P and Ar (H stays hydrogenic/analytic;
+# S and Cl are excluded, see NO_GSZ_PARAMETERS).
+ATOM_KEYS: tuple[str, ...] = tuple(
+    e.symbol.lower() for e in ELEMENTS if e.z >= 2 and e.z not in NO_GSZ_PARAMETERS
+)
 
 
 def element_by_symbol(sym: str) -> Element:
