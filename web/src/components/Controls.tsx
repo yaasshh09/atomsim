@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { isScreenedLevels } from "../api/client";
 import type { NucleusMode } from "../lib/nucleus";
 import { NUCLEUS_MODES } from "../lib/nucleus";
 import { useAppStore } from "../state/store";
@@ -22,15 +23,31 @@ const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
 export function Controls() {
   const {
     n, l, m, count, status, progress, error, system, systems, basis, view,
-    colorMode, fineStructure, nucleusMode,
+    colorMode, fineStructure, nucleusMode, config, levels,
     setQuantumNumbers, setCount, sample, setSystem, setBasis, setView,
-    setColorMode, setFineStructure, setNucleusMode, loadSystems,
+    setColorMode, setFineStructure, setNucleusMode, setConfig, loadSystems,
   } = useAppStore();
   useEffect(() => {
     if (systems.length === 0) void loadSystems();
   }, [systems.length, loadSystems]);
   const lChoices = Array.from({ length: n }, (_, i) => i);
   const mChoices = Array.from({ length: 2 * l + 1 }, (_, i) => i - l);
+
+  const hydrogenic = systems.filter((s) => s.kind === "hydrogenic");
+  const screened = systems.filter((s) => s.kind === "screened");
+  const isScreened = systems.find((s) => s.key === system)?.kind === "screened";
+  // The server echoes the resolved configuration on the levels payload.
+  const resolved = levels !== null && isScreenedLevels(levels) ? levels : null;
+
+  // A local draft so typing does not refetch physics on every keystroke; commit
+  // on submit/blur. `config` (store) is the committed value; null = Aufbau ground.
+  const [draft, setDraft] = useState(config ?? "");
+  useEffect(() => setDraft(config ?? ""), [config]);
+  const commitConfig = () => {
+    const trimmed = draft.trim();
+    setConfig(trimmed === "" ? null : trimmed);
+  };
+
   return (
     <aside className="panel">
       <h2>System</h2>
@@ -38,13 +55,54 @@ export function Controls() {
         preset
         <select value={system} onChange={(e) => setSystem(e.target.value)}>
           {systems.length === 0 && <option value={system}>{system}</option>}
-          {systems.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.name}
-            </option>
-          ))}
+          {hydrogenic.length > 0 && (
+            <optgroup label="Hydrogen-like">
+              {hydrogenic.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {screened.length > 0 && (
+            <optgroup label="Atoms (screened, approx.)">
+              {screened.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </label>
+      {isScreened && (
+        <div className="config-panel">
+          <label>
+            configuration
+            <input
+              type="text"
+              value={draft}
+              placeholder="Aufbau (ground)"
+              spellCheck={false}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitConfig}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitConfig();
+              }}
+            />
+          </label>
+          <p className="hint">
+            {config === null
+              ? "Aufbau ground configuration (default)"
+              : resolved
+                ? `${resolved.config}${resolved.is_ground ? "" : " — excited (non-ground)"}`
+                : "custom configuration"}
+          </p>
+          <button type="button" className="ghost" onClick={() => setConfig(null)}>
+            Reset to Aufbau
+          </button>
+        </div>
+      )}
       <h2>View</h2>
       <label>
         mode
