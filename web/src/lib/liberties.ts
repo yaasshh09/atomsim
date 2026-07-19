@@ -45,6 +45,23 @@ export const CLASSICAL_SLOWMO: Provenance = {
   refinement: "the slow-motion factor is stated live in the ghost HUD",
 };
 
+/**
+ * Screened-atom orbitals are numerical (no closed-form psi_nlm), so the 3-D
+ * cloud and 2-D plane — both built from the analytic wavefunction sampler — are
+ * honestly withheld rather than faked from a hydrogenic look-alike. Disclosed
+ * here; the energy-side views (levels, spectrum, radial) are fully available.
+ */
+export const SCREENED_ORBITAL_PLACEHOLDER: Provenance = {
+  fidelity: "approximation",
+  method: "numerical screened orbital — no analytic psi_nlm to sample for a 3-D cloud / 2-D plane",
+  assumptions: [
+    "the point-cloud and cross-section samplers require the closed-form hydrogenic wavefunction",
+    "the screened radial function R_nl(r) is available in the Radial view",
+  ],
+  error_estimate: null,
+  refinement: "sampling numerical screened orbitals is a later phase",
+};
+
 export const THUMBNAIL_LIBERTY: Provenance = {
   fidelity: "visual_liberty",
   method: "server-rendered inferno PNG of |psi|^2 on the y=0 plane (navigation aid)",

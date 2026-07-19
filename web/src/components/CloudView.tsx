@@ -4,7 +4,12 @@ import { useEffect, useMemo, useRef } from "react";
 import type * as THREE from "three";
 import { formatSeconds, slowMotionFactor } from "../lib/classical";
 import { buildCloudColors } from "../lib/cloudColors";
-import { CLASSICAL_SLOWMO, NUCLEUS_MARKER_LIBERTY, RENDER_LIBERTIES } from "../lib/liberties";
+import {
+  CLASSICAL_SLOWMO,
+  NUCLEUS_MARKER_LIBERTY,
+  RENDER_LIBERTIES,
+  SCREENED_ORBITAL_PLACEHOLDER,
+} from "../lib/liberties";
 import { nucleusCaption, nucleusSphere } from "../lib/nucleus";
 import { useAppStore } from "../state/store";
 import { Badge } from "./Badge";
@@ -44,6 +49,8 @@ function FpsMeter() {
 export function CloudView() {
   const {
     n,
+    system,
+    systems,
     positions,
     density,
     phase,
@@ -56,6 +63,7 @@ export function CloudView() {
     setGhost,
     loadClassical,
   } = useAppStore();
+  const isScreened = systems.find((s) => s.key === system)?.kind === "screened";
   // Deep-link (?ghost=1) sets `ghost` in initial state without going through
   // setGhost, and changing n/system resets the ghost data to idle while the
   // toggle stays on. Either way, fetch when the overlay is on but data is idle.
@@ -79,6 +87,20 @@ export function CloudView() {
     distance,
   );
   const caption = nucleusCaption(nucleusMode, sysInfo, nucleus);
+  if (isScreened) {
+    return (
+      <div className="view-wrap">
+        <div className="view-header">
+          <span className="plot-title">3D point cloud</span>
+          <Badge provenance={SCREENED_ORBITAL_PLACEHOLDER} />
+        </div>
+        <p className="hint-block">
+          Numerical screened orbital — the 3-D point cloud arrives in a later phase.
+          See the Radial, Energy levels, and Spectrum views for this atom.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="canvas-wrap">
       <Canvas camera={{ fov: 50 }}>

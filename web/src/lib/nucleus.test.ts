@@ -32,6 +32,8 @@ function sys(radiusBohr: number | null, radiusFm: number | null): SystemInfo {
       radiusFm === null
         ? null
         : { value: radiusFm, unit: "fm", label: "r", provenance: EXACT },
+    kind: "hydrogenic",
+    n_electrons: null,
   };
 }
 

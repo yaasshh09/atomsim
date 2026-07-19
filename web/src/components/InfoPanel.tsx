@@ -5,12 +5,17 @@ import { Badge } from "./Badge";
 
 export function InfoPanel() {
   const {
-    n, l, m, basis, system, fineStructure, stateInfo, meta, fps, view, loadStateInfo,
+    n, l, m, basis, system, systems, fineStructure, stateInfo, meta, fps, view, loadStateInfo,
   } = useAppStore();
+  const selected = systems.find((s) => s.key === system);
+  const isScreened = selected?.kind === "screened";
   useEffect(() => {
-    void loadStateInfo();
-  }, [n, l, m, system, fineStructure, loadStateInfo]);
-  const sys = stateInfo?.system;
+    // /api/state is hydrogenic-only; screened atoms describe themselves via the
+    // systems list and their dedicated level/radial/spectrum views.
+    if (!isScreened) void loadStateInfo();
+  }, [isScreened, n, l, m, system, fineStructure, loadStateInfo]);
+  // Prefer the exact per-state system, else the selected preset from the list.
+  const sys = stateInfo?.system ?? selected;
   return (
     <aside className="panel">
       <h1 className="brand">atomsim</h1>
