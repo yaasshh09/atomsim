@@ -13,10 +13,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from atomsim.analytic.angular import spherical_harmonic
+from atomsim.analytic.wavefunction import WavefunctionValues
 from atomsim.atoms import Configuration, is_ground
 from atomsim.numerics.radial_solver import solve_radial_with_error
 from atomsim.numerics.screening import screened_potential, screening_provenance
 from atomsim.provenance import Fidelity, Field, Provenance, Quantity
+
+_SCREENED_EVAL_POINTS = 4096
 
 
 @dataclass(frozen=True)
@@ -142,3 +146,47 @@ def screened_radial(
     p_field = Field(values=grid**2 * R_i**2, grid=grid, unit="bohr^-1",
                     grid_unit="bohr", label=f"P_{n},{l}(r) = r^2 R^2", provenance=prov)
     return r_field, p_field
+
+
+def evaluate_screened_state(
+    z: int,
+    n_electrons: int,
+    n: int,
+    l: int,
+    m: int,
+    positions: np.ndarray,
+    *,
+    basis: str = "complex",
+) -> WavefunctionValues:
+    """psi_nlm = numerical screened R_nl(|r|) x hydrogenic Y_lm, at (N, 3) positions."""
+    pos = np.asarray(positions, dtype=float)
+    if pos.ndim != 2 or pos.shape[1] != 3:
+        raise ValueError(f"positions must have shape (N, 3), got {pos.shape}")
+
+    r = np.linalg.norm(pos, axis=1)
+    safe_r = np.where(r > 0.0, r, 1.0)
+    theta = np.arccos(np.clip(pos[:, 2] / safe_r, -1.0, 1.0))
+    theta = np.where(r > 0.0, theta, 0.0)
+    phi = np.arctan2(pos[:, 1], pos[:, 0])
+
+    r_field, _ = screened_radial(z, n_electrons, n, l, points=_SCREENED_EVAL_POINTS)
+    R = np.interp(r, r_field.grid, r_field.values, left=r_field.values[0], right=0.0)
+    angular = spherical_harmonic(l, m, theta, phi, basis=basis)
+    values = R * angular.values
+
+    base = screening_provenance(z, n_electrons)
+    prov = Provenance(
+        fidelity=Fidelity.APPROXIMATION,
+        method=(
+            f"psi_nlm = numerical screened R_nl (u/r) x {angular.provenance.method}; "
+            f"{base.method}"
+        ),
+        assumptions=base.assumptions
+        + angular.provenance.assumptions
+        + ("values in bohr^-3/2 at Cartesian positions in bohr",),
+        error_estimate=r_field.provenance.error_estimate,
+    )
+    return WavefunctionValues(
+        values=values, positions=pos, n=n, l=l, m=m, Z=z, mu_ratio=1.0,
+        basis=basis, provenance=prov,
+    )

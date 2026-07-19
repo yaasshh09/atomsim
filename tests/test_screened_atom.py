@@ -1,10 +1,12 @@
 import math
 
+import numpy as np
 import pytest
 
 from atomsim.atoms import aufbau_configuration, parse_config
 from atomsim.provenance import Fidelity
 from atomsim.screened_atom import (
+    evaluate_screened_state,
     screened_radial,
     solve_screened_atom,
     valence_ionization_energy,
@@ -54,3 +56,38 @@ def test_screened_radial_shapes():
     r_field, p_field = screened_radial(z=11, n_electrons=11, n=3, l=0, points=300)
     assert r_field.values.shape == r_field.grid.shape == (300,)
     assert p_field.unit == "bohr^-1" and r_field.provenance.fidelity is Fidelity.APPROXIMATION
+
+
+def test_evaluate_screened_state_is_real_on_y0_plane():
+    # Central-field orbital is real on y=0 (e^{i m phi} = +/-1 there).
+    x = np.linspace(0.1, 20.0, 50)
+    pos = np.stack([x, np.zeros_like(x), np.zeros_like(x)], axis=1)
+    psi = evaluate_screened_state(11, 11, 3, 1, 0, pos, basis="complex")
+    assert psi.values.shape == (50,)
+    assert np.max(np.abs(psi.values.imag)) < 1e-9
+    assert psi.provenance.fidelity is Fidelity.APPROXIMATION
+
+
+def test_evaluate_screened_state_factorizes_R_times_Y():
+    from atomsim.analytic.angular import spherical_harmonic
+
+    rng = np.random.default_rng(0)
+    pos = rng.normal(size=(200, 3)) * 3.0
+    psi = evaluate_screened_state(11, 11, 3, 0, 0, pos, basis="complex")
+    r = np.linalg.norm(pos, axis=1)
+    theta = np.arccos(np.clip(pos[:, 2] / np.where(r > 0, r, 1.0), -1.0, 1.0))
+    phi = np.arctan2(pos[:, 1], pos[:, 0])
+    r_field, _ = screened_radial(11, 11, 3, 0, points=4096)
+    R = np.interp(r, r_field.grid, r_field.values, right=0.0)
+    Y = spherical_harmonic(0, 0, theta, phi, basis="complex").values
+    assert np.allclose(psi.values, R * Y, atol=1e-8)
+
+
+def test_evaluate_screened_state_node_count_along_ray():
+    # Na 3s has n-l-1 = 2 radial nodes.
+    z = np.linspace(0.05, 40.0, 4000)
+    pos = np.stack([np.zeros_like(z), np.zeros_like(z), z], axis=1)
+    psi = evaluate_screened_state(11, 11, 3, 0, 0, pos, basis="complex").values.real
+    nz = psi[np.abs(psi) > 1e-6]
+    sign_changes = int(np.sum(np.diff(np.sign(nz)) != 0))
+    assert sign_changes == 2
