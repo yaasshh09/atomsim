@@ -98,6 +98,7 @@ describe("serializeAppUrl", () => {
       forcePreset: "powerlaw" as const,
       forceParams: { p: 1.0 },
       forceL: 0,
+      config: null,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
     expect({ ...URL_DEFAULTS, ...parsed }).toEqual(state);
@@ -163,5 +164,17 @@ describe("force-law url state", () => {
     const q = serializeAppUrl({ ...URL_DEFAULTS });
     expect(q).not.toContain("fl=");
     expect(q).not.toContain("preset=");
+  });
+
+  it("round-trips a screened-atom config deep link", () => {
+    const state = { ...URL_DEFAULTS, system: "na", config: "1s2 2s2 2p6 3p1" };
+    const q = serializeAppUrl(state);
+    expect(q).toContain("config=");
+    expect({ ...URL_DEFAULTS, ...parseAppUrl(q) }.config).toBe("1s2 2s2 2p6 3p1");
+  });
+
+  it("omits config when null and drops a malformed config", () => {
+    expect(serializeAppUrl({ ...URL_DEFAULTS })).not.toContain("config=");
+    expect(parseAppUrl("?config=not-a-config").config).toBeUndefined();
   });
 });

@@ -25,6 +25,8 @@ export interface UrlState {
   forcePreset: ForcePreset;
   forceParams: Record<string, number>;
   forceL: number;
+  /** screened-atom electron configuration; null = Aufbau ground (default) */
+  config: string | null;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -44,7 +46,11 @@ export const URL_DEFAULTS: UrlState = {
   forcePreset: "powerlaw",
   forceParams: defaultParams("powerlaw"),
   forceL: 0,
+  config: null,
 };
+
+// a config string is compact subshell tokens: "1s2 2s2 2p6 3p1"
+const CONFIG_RE = /^(\d[spdfgh]\d+)( \d[spdfgh]\d+)*$/;
 
 // mirrors the n select in Controls (N_CHOICES max)
 const N_MAX_UI = 6;
@@ -164,6 +170,9 @@ export function parseAppUrl(search: string): Partial<UrlState> {
   const fl = pickInt(q.get("fl"));
   if (fl !== undefined && fl >= 0) out.forceL = fl;
 
+  const config = q.get("config");
+  if (config !== null && CONFIG_RE.test(config)) out.config = config;
+
   return out;
 }
 
@@ -193,6 +202,7 @@ export function serializeAppUrl(state: UrlState): string {
     if (v !== undefined && Math.abs(v - spec.default) > 1e-9) q.set(spec.name, String(v));
   }
   if (state.forceL !== URL_DEFAULTS.forceL) q.set("fl", String(state.forceL));
+  if (state.config) q.set("config", state.config);
   // note: '+' stays percent-encoded (%2B) — a literal '+' in a query string
   // reads back as a space, which would break the he+ round-trip
   const s = q.toString();

@@ -27,6 +27,7 @@ useAppStore.subscribe((s) => {
     forcePreset: s.forcePreset,
     forceParams: s.forceParams,
     forceL: s.forceL,
+    config: s.config,
   });
   const next = window.location.pathname + qs;
   if (next !== window.location.pathname + window.location.search) {
