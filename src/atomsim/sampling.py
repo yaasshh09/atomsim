@@ -14,7 +14,9 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.special import lpmv
 
 from atomsim.analytic.hydrogen import radial_wavefunction, validate_quantum_numbers
+from atomsim.numerics.screening import screening_provenance
 from atomsim.provenance import Fidelity, Provenance
+from atomsim.screened_atom import screened_radial
 
 _R_GRID_POINTS = 8192
 _X_GRID_POINTS = 4096
@@ -34,15 +36,20 @@ class SampleCloud:
     provenance: Provenance
 
 
+def _radial_inverse_cdf_tabulated(r_grid: np.ndarray, R_values: np.ndarray):
+    """Grid r and CDF of P(r) = r^2 R^2 from a tabulated R_nl (grid, values)."""
+    p = r_grid * r_grid * R_values * R_values
+    cdf = cumulative_trapezoid(p, r_grid, initial=0.0)
+    cdf /= cdf[-1]
+    return r_grid, cdf, float(r_grid[-1])
+
+
 def _radial_inverse_cdf(n: int, l: int, Z: int, mu_ratio: float):
-    """Grid r and CDF of P(r) = r^2 R_nl^2 for inverse-CDF sampling."""
+    """Grid r and CDF of P(r) = r^2 R_nl^2 for inverse-CDF sampling (analytic)."""
     r_max = 20.0 * n * n / (Z * mu_ratio)  # P(r_max)/P_peak < 1e-15 for all l < n
     r = np.linspace(0.0, r_max, _R_GRID_POINTS)
     R = radial_wavefunction(n, l, r, Z=Z, mu_ratio=mu_ratio).values
-    p = r * r * R * R
-    cdf = cumulative_trapezoid(p, r, initial=0.0)
-    cdf /= cdf[-1]
-    return r, cdf, r_max
+    return _radial_inverse_cdf_tabulated(r, R)
 
 
 def _costheta_inverse_cdf(l: int, m: int):
@@ -66,34 +73,9 @@ def _phi_inverse_cdf(m: int):
     return phi, cdf
 
 
-def sample_density(
-    n: int,
-    l: int,
-    m: int,
-    count: int,
-    Z: int = 1,
-    mu_ratio: float = 1.0,
-    seed: int = 0,
-    progress: Callable[[float], None] | None = None,
-    n_chunks: int = 10,
-    basis: str = "complex",
-) -> SampleCloud:
-    """Draw `count` positions from |psi_nlm|^2 in the chosen angular basis."""
-    validate_quantum_numbers(n, l)
-    if abs(m) > l:
-        raise ValueError(f"|m| must be <= l, got m={m}, l={l}")
-    if count < 1:
-        raise ValueError(f"count must be positive, got {count}")
-    if basis not in ("complex", "real"):
-        raise ValueError(f"basis must be 'complex' or 'real', got {basis!r}")
-
+def _draw_positions(count, r_grid, r_cdf, x_grid, x_cdf, phi_sampler, seed, n_chunks, progress):
+    """Inverse-CDF draw of `count` Cartesian positions (bohr) from factorized CDFs."""
     rng = np.random.default_rng(seed)
-    r_grid, r_cdf, r_max = _radial_inverse_cdf(n, l, Z, mu_ratio)
-    x_grid, x_cdf = _costheta_inverse_cdf(l, m)
-    phi_sampler = None
-    if basis == "real" and m != 0:
-        phi_sampler = _phi_inverse_cdf(m)
-
     sizes = np.full(n_chunks, count // n_chunks)
     sizes[: count % n_chunks] += 1
     chunks: list[np.ndarray] = []
@@ -117,8 +99,36 @@ def sample_density(
         done += int(size)
         if progress is not None:
             progress(done / count)
+    return np.concatenate(chunks)
 
-    positions = np.concatenate(chunks)
+
+def sample_density(
+    n: int,
+    l: int,
+    m: int,
+    count: int,
+    Z: int = 1,
+    mu_ratio: float = 1.0,
+    seed: int = 0,
+    progress: Callable[[float], None] | None = None,
+    n_chunks: int = 10,
+    basis: str = "complex",
+) -> SampleCloud:
+    """Draw `count` positions from |psi_nlm|^2 in the chosen angular basis."""
+    validate_quantum_numbers(n, l)
+    if abs(m) > l:
+        raise ValueError(f"|m| must be <= l, got m={m}, l={l}")
+    if count < 1:
+        raise ValueError(f"count must be positive, got {count}")
+    if basis not in ("complex", "real"):
+        raise ValueError(f"basis must be 'complex' or 'real', got {basis!r}")
+
+    phi_sampler = _phi_inverse_cdf(m) if (basis == "real" and m != 0) else None
+    r_grid, r_cdf, r_max = _radial_inverse_cdf(n, l, Z, mu_ratio)
+    x_grid, x_cdf = _costheta_inverse_cdf(l, m)
+    positions = _draw_positions(
+        count, r_grid, r_cdf, x_grid, x_cdf, phi_sampler, seed, n_chunks, progress
+    )
     phi_desc = (
         "phi uniform (|Y_lm|^2 is phi-independent)"
         if phi_sampler is None
@@ -140,5 +150,68 @@ def sample_density(
     )
     return SampleCloud(
         positions=positions, n=n, l=l, m=m, Z=Z, mu_ratio=mu_ratio,
+        basis=basis, provenance=provenance,
+    )
+
+
+def sample_screened_density(
+    z: int,
+    n_electrons: int,
+    n: int,
+    l: int,
+    m: int,
+    count: int,
+    *,
+    seed: int = 0,
+    progress: Callable[[float], None] | None = None,
+    n_chunks: int = 10,
+    basis: str = "complex",
+) -> SampleCloud:
+    """Draw `count` positions from |psi_nlm|^2 for a screened GSZ/GJG atom.
+
+    Radial source is the numerical screened R_nl; the angular part is the same
+    central-field Y_lm as hydrogen. Fidelity is APPROXIMATION (model error).
+    """
+    validate_quantum_numbers(n, l)
+    if abs(m) > l:
+        raise ValueError(f"|m| must be <= l, got m={m}, l={l}")
+    if count < 1:
+        raise ValueError(f"count must be positive, got {count}")
+    if basis not in ("complex", "real"):
+        raise ValueError(f"basis must be 'complex' or 'real', got {basis!r}")
+
+    r_field, _ = screened_radial(z, n_electrons, n, l, points=_R_GRID_POINTS)
+    r_grid, r_cdf, r_max = _radial_inverse_cdf_tabulated(r_field.grid, r_field.values)
+    x_grid, x_cdf = _costheta_inverse_cdf(l, m)
+    phi_sampler = _phi_inverse_cdf(m) if (basis == "real" and m != 0) else None
+    positions = _draw_positions(
+        count, r_grid, r_cdf, x_grid, x_cdf, phi_sampler, seed, n_chunks, progress
+    )
+
+    base = screening_provenance(z, n_electrons)
+    phi_desc = (
+        "phi uniform (|Y_lm|^2 is phi-independent)"
+        if phi_sampler is None
+        else "phi from analytic real-basis marginal (cos^2/sin^2 m phi)"
+    )
+    provenance = Provenance(
+        fidelity=Fidelity.APPROXIMATION,
+        method=(
+            f"factorized inverse-CDF Monte-Carlo of |psi_nlm|^2 over a numerical "
+            f"screened R_nl ({basis} basis): r from P(r)=r^2 R^2 (grid N={r_grid.size}, "
+            f"r_max={r_max:g} bohr), cos(theta) from |Theta_lm|^2, {phi_desc}; "
+            f"{base.method}"
+        ),
+        assumptions=base.assumptions
+        + (
+            f"angular basis: {basis}",
+            f"RNG PCG64 seed={seed}, count={count}",
+            "positions in bohr",
+        ),
+        error_estimate=r_field.provenance.error_estimate,
+        refinement="increase CDF grid resolution, sample count, or radial solver resolution",
+    )
+    return SampleCloud(
+        positions=positions, n=n, l=l, m=m, Z=z, mu_ratio=1.0,
         basis=basis, provenance=provenance,
     )

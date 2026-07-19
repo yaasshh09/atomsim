@@ -1,9 +1,12 @@
 import numpy as np
 import pytest
+from scipy.integrate import cumulative_trapezoid
+from scipy.special import lpmv
 from scipy.stats import kstest
 
 from atomsim.provenance import Fidelity
-from atomsim.sampling import SampleCloud, sample_density
+from atomsim.sampling import SampleCloud, sample_density, sample_screened_density
+from atomsim.screened_atom import screened_radial
 
 COUNT = 100_000
 
@@ -136,3 +139,38 @@ def test_basis_recorded_in_cloud_and_provenance():
 def test_rejects_unknown_basis():
     with pytest.raises(ValueError):
         sample_density(1, 0, 0, count=1_000, basis="cartoon")
+
+
+def test_screened_radial_marginal_matches_numerical_cdf():
+    # Na 3s: sampled radial marginal must match the numerical P(r)=r^2 R^2 CDF.
+    cloud = sample_screened_density(11, 11, 3, 0, 0, 20000, seed=1)
+    r = np.linalg.norm(cloud.positions, axis=1)
+    r_field, _ = screened_radial(11, 11, 3, 0, points=8192)
+    grid, R = r_field.grid, r_field.values
+    p = grid**2 * R**2
+    cdf = cumulative_trapezoid(p, grid, initial=0.0)
+    cdf /= cdf[-1]
+    _, pval = kstest(r, lambda x: np.interp(x, grid, cdf))
+    assert pval > 0.01
+
+
+def test_screened_angular_marginal_matches_legendre():
+    # Na 3p, m=0: cos(theta) marginal must follow |Theta_10|^2 (central field).
+    cloud = sample_screened_density(11, 11, 3, 1, 0, 20000, seed=2)
+    cos_t = cloud.positions[:, 2] / np.linalg.norm(cloud.positions, axis=1)
+    x = np.linspace(-1.0, 1.0, 4096)
+    p = lpmv(0, 1, x) ** 2
+    cdf = cumulative_trapezoid(p, x, initial=0.0)
+    cdf /= cdf[-1]
+    _, pval = kstest(cos_t, lambda v: np.interp(v, x, cdf))
+    assert pval > 0.01
+
+
+def test_screened_cloud_is_approximation_and_sane():
+    cloud = sample_screened_density(11, 11, 3, 0, 0, 5000, seed=3)
+    assert cloud.positions.shape == (5000, 3)
+    assert cloud.provenance.fidelity is Fidelity.APPROXIMATION
+    assert "GSZ" in cloud.provenance.method or "screen" in cloud.provenance.method.lower()
+    r = np.linalg.norm(cloud.positions, axis=1)
+    assert np.all(np.isfinite(r))
+    assert 1.0 < float(r.mean()) < 20.0
