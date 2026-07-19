@@ -172,4 +172,20 @@ describe("force-law slice", () => {
     expect(useAppStore.getState().forceViz).toBe("ladder");
     expect(useAppStore.getState().forceLaw).not.toBeNull(); // untouched
   });
+
+  it("setSystem resets config to the Aufbau default (null) and clears physics", () => {
+    useAppStore.getState().setConfig("1s2 2s1");
+    useAppStore.getState().setSystem("na");
+    const st = useAppStore.getState();
+    expect(st.system).toBe("na");
+    expect(st.config).toBeNull();
+    expect(st.levels).toBeNull();
+  });
+
+  it("setConfig clears derived physics but keeps the system", () => {
+    useAppStore.setState({ system: "na", levels: {} as never });
+    useAppStore.getState().setConfig("1s2 2s2 2p6 3p1");
+    expect(useAppStore.getState().config).toBe("1s2 2s2 2p6 3p1");
+    expect(useAppStore.getState().levels).toBeNull();
+  });
 });

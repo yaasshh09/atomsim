@@ -9,6 +9,7 @@ import type {
   PlaneMeta,
   RadialResponse,
   SampleMeta,
+  ScreenedLevels,
   SpectrumResponse,
   StateResponse,
   SystemInfo,
@@ -57,8 +58,11 @@ interface AppState {
   planeStatus: SampleStatus;
   planeProgress: number;
   radial: RadialResponse | null;
-  levels: LevelsResponse | null;
+  /** Hydrogenic keys return LevelsResponse; screened atoms return ScreenedLevels. */
+  levels: LevelsResponse | ScreenedLevels | null;
   spectrum: SpectrumResponse | null;
+  /** null = Aufbau ground config (server fills it); else an explicit config string. */
+  config: string | null;
   labConst: ConstMultipliers;
   labZ: number;
   whatif: {
@@ -88,6 +92,7 @@ interface AppState {
   loadWhatIf: () => Promise<void>;
   setQuantumNumbers: (n: number, l: number, m: number) => void;
   setSystem: (system: string) => void;
+  setConfig: (config: string | null) => void;
   setBasis: (basis: Basis) => void;
   setView: (view: ViewMode) => void;
   setColorMode: (colorMode: ColorMode) => void;
@@ -150,6 +155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   forceViz: "well",
   forceLaw: null,
   forceStatus: "idle",
+  config: null,
   ...INVALIDATED,
   // classical ghost data depends on (n, system) but not (l, m, basis), so it is
   // reset explicitly here rather than living in INVALIDATED (basis changes keep it).
@@ -159,11 +165,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       system,
       ...INVALIDATED,
+      // selecting a system resets to the Aufbau ground config (server fills it)
+      config: null,
       classicalGhost: null,
       classicalStatus: "idle",
       forceLaw: null,
       forceStatus: "idle",
     }),
+  // config is its own physics input (screened atoms only): it clears the derived
+  // level/spectrum/state payloads but keeps the selected system.
+  setConfig: (config) => set({ config, levels: null, spectrum: null, stateInfo: null }),
   setBasis: (basis) =>
     set((s) => ({
       basis,
@@ -247,13 +258,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const report = await client.getConstants(labConst);
       const alpha = report.alpha.quantity.value;
+      // What-If only uses hydrogenic z{N} systems; narrow the union defensively.
       const real = await client.getLevels(sys, N_MAX_DIAGRAM, true);
+      if (client.isScreenedLevels(real)) throw new Error("what-if expects hydrogenic levels");
       // altered diagram only when the derived alpha stays in the perturbative range
-      const altered =
+      const alteredRaw =
         report.altered && isAlphaValid(alpha)
           ? await client.getLevels(sys, N_MAX_DIAGRAM, true, alpha)
           : null;
-      set({ whatif: { report, real, altered }, whatifStatus: "ready" });
+      if (alteredRaw !== null && client.isScreenedLevels(alteredRaw)) {
+        throw new Error("what-if expects hydrogenic levels");
+      }
+      set({ whatif: { report, real, altered: alteredRaw }, whatifStatus: "ready" });
     } catch (err) {
       set({
         whatifStatus: "error",
@@ -317,11 +333,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ radial: await client.getRadial(n, l, system) });
   },
   loadLevels: async () => {
-    const { system, fineStructure } = get();
-    set({ levels: await client.getLevels(system, N_MAX_DIAGRAM, fineStructure) });
+    const { system, fineStructure, config } = get();
+    set({ levels: await client.getLevels(system, N_MAX_DIAGRAM, fineStructure, undefined, config) });
   },
   loadSpectrum: async () => {
-    const { system, fineStructure } = get();
-    set({ spectrum: await client.getSpectrum(system, N_MAX_DIAGRAM, fineStructure) });
+    const { system, fineStructure, config } = get();
+    set({ spectrum: await client.getSpectrum(system, N_MAX_DIAGRAM, fineStructure, config) });
   },
 }));
