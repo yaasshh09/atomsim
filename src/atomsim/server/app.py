@@ -41,7 +41,7 @@ from atomsim.numerics.force_law import PRESETS, force_law_levels
 from atomsim.plane import PlaneGrid, plane_grid
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density
-from atomsim.screened_atom import solve_screened_atom
+from atomsim.screened_atom import screened_radial, solve_screened_atom
 from atomsim.server.jobs import Job, JobStatus, JobStore
 from atomsim.server.schemas import (
     ChannelModel,
@@ -528,6 +528,18 @@ def create_app() -> FastAPI:
         _validate_state(n, l, 0)
         if not 50 <= points <= 2000:
             raise HTTPException(status_code=422, detail="points must be in [50, 2000]")
+        if _is_screened(system):
+            element = atom_for_key(system)
+            rw, p = screened_radial(element.z, element.z, n, l, points=points)
+            return RadialResponse(
+                n=n, l=l,
+                system=SystemModel.from_atom(
+                    element, element.z,
+                    f"{element.name}: GSZ screened central-field model (APPROXIMATION).",
+                ),
+                r_wavefunction=FieldModel.from_field(rw),
+                radial_probability=FieldModel.from_field(p),
+            )
         sys_ = _resolve_system(system)
         mu = sys_.mu_ratio.value
         r_max = 20.0 * n * n / (sys_.Z * mu)

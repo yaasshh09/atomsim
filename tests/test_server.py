@@ -573,3 +573,18 @@ def test_levels_hydrogenic_unchanged(client):
     body = client.get("/api/levels?system=h&n_max=3").json()
     assert body["system"]["kind"] == "hydrogenic"
     assert body["gross"][0]["degeneracy"] == 2
+
+
+def test_radial_screened_sodium_3s(client):
+    body = client.get("/api/radial/3/0?system=na&points=300").json()
+    assert body["system"]["kind"] == "screened"
+    assert len(body["radial_probability"]["values"]) == 300
+    prov = body["r_wavefunction"]["provenance"]
+    assert prov["fidelity"] == "approximation"
+    assert "Green" in prov["method"] or "GSZ" in prov["method"]
+
+
+def test_radial_hydrogenic_unchanged(client):
+    body = client.get("/api/radial/2/1?system=h&points=200").json()
+    assert body["system"]["kind"] == "hydrogenic"
+    assert body["r_wavefunction"]["provenance"]["fidelity"] == "exact"
