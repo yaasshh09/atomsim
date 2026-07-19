@@ -6,10 +6,18 @@ import type {
   JobMeta,
   LevelsResponse,
   RadialResponse,
+  ScreenedLevels,
   SpectrumResponse,
   StateResponse,
   SystemsResponse,
 } from "./types";
+
+/** The /api/levels payload is hydrogenic or screened; discriminate on `orbitals`. */
+export function isScreenedLevels(
+  body: LevelsResponse | ScreenedLevels,
+): body is ScreenedLevels {
+  return "orbitals" in body;
+}
 
 export type Basis = "complex" | "real";
 export type PlaneQuantity = "density" | "psi";
@@ -46,8 +54,14 @@ export function getState(
   );
 }
 
-export function getRadial(n: number, l: number, system: string): Promise<RadialResponse> {
-  return getJson(`/api/radial/${n}/${l}?system=${system}`);
+export function getRadial(
+  n: number,
+  l: number,
+  system: string,
+  points?: number,
+): Promise<RadialResponse> {
+  const p = points === undefined ? "" : `&points=${points}`;
+  return getJson(`/api/radial/${n}/${l}?system=${system}${p}`);
 }
 
 export function getLevels(
@@ -55,10 +69,12 @@ export function getLevels(
   nMax: number,
   fineStructure: boolean,
   alpha?: number,
-): Promise<LevelsResponse> {
+  config?: string | null,
+): Promise<LevelsResponse | ScreenedLevels> {
   const a = alpha === undefined ? "" : `&alpha=${alpha}`;
+  const c = config ? `&config=${encodeURIComponent(config)}` : "";
   return getJson(
-    `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}${a}`,
+    `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}${a}${c}`,
   );
 }
 
@@ -101,9 +117,11 @@ export function getSpectrum(
   system: string,
   nMax: number,
   fineStructure: boolean,
+  config?: string | null,
 ): Promise<SpectrumResponse> {
+  const c = config ? `&config=${encodeURIComponent(config)}` : "";
   return getJson(
-    `/api/spectrum?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}`,
+    `/api/spectrum?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}${c}`,
   );
 }
 

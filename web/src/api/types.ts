@@ -41,6 +41,10 @@ export interface SystemInfo {
   /** null = honestly absent (point lepton / unidentified nucleus), never zero */
   nuclear_radius: Quantity | null;
   nuclear_radius_fm: Quantity | null;
+  /** Hydrogenic presets stay "hydrogenic"; He–Ar screened atoms are "screened". */
+  kind: "hydrogenic" | "screened";
+  /** Electron count for screened atoms; null for hydrogenic systems. */
+  n_electrons: number | null;
 }
 
 export interface LevelInfo {
@@ -94,6 +98,24 @@ export interface LevelsResponse {
   alpha: number;
   gross: GrossLevel[];
   fine: FineLevel[] | null;
+}
+
+export interface ScreenedOrbital {
+  n: number;
+  l: number;
+  label: string;
+  occupancy: number;
+  energy: Quantity;
+  energy_ev: Quantity;
+}
+
+export interface ScreenedLevels {
+  system: SystemInfo;
+  config: string;
+  is_ground: boolean;
+  orbitals: ScreenedOrbital[];
+  total_energy: Quantity;
+  total_energy_ev: Quantity;
 }
 
 export interface DerivedObservable {
