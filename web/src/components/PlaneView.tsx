@@ -1,35 +1,18 @@
 import { useEffect, useRef } from "react";
-import { SCREENED_ORBITAL_PLACEHOLDER } from "../lib/liberties";
 import { rasterize } from "../lib/rasterize";
 import { useAppStore } from "../state/store";
 import { Badge } from "./Badge";
 
 export function PlaneView() {
   const {
-    n, l, m, system, systems, basis, planeQuantity, plane, planeStatus, planeProgress,
+    n, l, m, system, basis, planeQuantity, plane, planeStatus, planeProgress,
     error, loadPlane, setPlaneQuantity,
   } = useAppStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isScreened = systems.find((s) => s.key === system)?.kind === "screened";
 
   useEffect(() => {
-    if (!isScreened && !plane && planeStatus === "idle") void loadPlane();
-  }, [isScreened, plane, planeStatus, loadPlane, n, l, m, system, basis, planeQuantity]);
-
-  if (isScreened) {
-    return (
-      <div className="view-wrap">
-        <div className="view-header">
-          <span className="plot-title">2D cross-section</span>
-          <Badge provenance={SCREENED_ORBITAL_PLACEHOLDER} />
-        </div>
-        <p className="hint-block">
-          Numerical screened orbital — the 2-D cross-section arrives in a later phase.
-          See the Radial, Energy levels, and Spectrum views for this atom.
-        </p>
-      </div>
-    );
-  }
+    if (!plane && planeStatus === "idle") void loadPlane();
+  }, [plane, planeStatus, loadPlane, n, l, m, system, basis, planeQuantity]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
