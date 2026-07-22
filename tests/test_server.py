@@ -523,22 +523,40 @@ def test_systems_list_excludes_unsourced_sulfur_chlorine(client):
     assert "s" not in keys and "cl" not in keys  # no published GSZ parameters
 
 
-def test_cloud_job_rejects_screened_atom(client):
+def test_cloud_job_screened_atom_end_to_end(client):
     r = client.post(
         "/api/jobs/sample",
-        json={"n": 3, "l": 0, "m": 0, "system": "na", "count": 1000},
+        json={"n": 3, "l": 0, "m": 0, "system": "na", "count": 2000, "seed": 4},
     )
-    assert r.status_code == 422
-    assert "screened" in r.json()["detail"].lower()
+    assert r.status_code == 200
+    job_id = r.json()["id"]
+    final = _wait_done(client, job_id)
+    assert final["status"] == "done"
+    meta = client.get(f"/api/jobs/{job_id}/meta").json()
+    assert meta["count"] == 2000
+    assert meta["provenance"]["fidelity"] == "approximation"
+    raw = client.get(f"/api/jobs/{job_id}/data")
+    positions = np.frombuffer(raw.content, dtype=np.float32).reshape(-1, 3)
+    assert positions.shape == (2000, 3)
+    assert np.isfinite(positions).all()
 
 
-def test_plane_job_rejects_screened_atom(client):
+def test_plane_job_screened_atom_end_to_end(client):
     r = client.post(
         "/api/jobs/plane",
-        json={"n": 3, "l": 0, "m": 0, "system": "na", "quantity": "psi"},
+        json={"n": 3, "l": 0, "m": 0, "system": "na", "quantity": "psi", "resolution": 64},
     )
-    assert r.status_code == 422
-    assert "screened" in r.json()["detail"].lower()
+    assert r.status_code == 200
+    job_id = r.json()["id"]
+    final = _wait_done(client, job_id)
+    assert final["status"] == "done"
+    meta = client.get(f"/api/jobs/{job_id}/meta").json()
+    assert meta["quantity"] == "psi"
+    assert meta["provenance"]["fidelity"] == "approximation"
+    raw = client.get(f"/api/jobs/{job_id}/data")
+    grid = np.frombuffer(raw.content, dtype=np.float32)
+    assert grid.size == 64 * 64
+    assert np.isfinite(grid).all()
 
 
 def test_levels_screened_lithium_lifts_degeneracy(client):

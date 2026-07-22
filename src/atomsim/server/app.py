@@ -38,10 +38,14 @@ from atomsim.classical import classical_ghost
 from atomsim.constants import ALPHA, BOHR_RADIUS_PM, HARTREE_EV
 from atomsim.constants_lab import analyze_constants
 from atomsim.numerics.force_law import PRESETS, force_law_levels
-from atomsim.plane import PlaneGrid, plane_grid
+from atomsim.plane import PlaneGrid, plane_grid, screened_plane_grid
 from atomsim.provenance import Field, Quantity
-from atomsim.sampling import SampleCloud, sample_density
-from atomsim.screened_atom import screened_radial, solve_screened_atom
+from atomsim.sampling import SampleCloud, sample_density, sample_screened_density
+from atomsim.screened_atom import (
+    evaluate_screened_state,
+    screened_radial,
+    solve_screened_atom,
+)
 from atomsim.server.jobs import Job, JobStatus, JobStore
 from atomsim.server.schemas import (
     ChannelModel,
@@ -638,15 +642,30 @@ def create_app() -> FastAPI:
 
     @app.post("/api/jobs/sample", response_model=JobModel)
     async def create_sample_job(req: SampleRequest) -> JobModel:
-        if _is_screened(req.system):
-            raise HTTPException(
-                status_code=422,
-                detail="screened-atom orbitals: 3-D cloud / 2-D plane arrive in a later phase",
-            )
         _validate_state(req.n, req.l, req.m)
-        sys_ = _resolve_system(req.system)
         job = jobs.create()
         app.state.job_systems[job.id] = req.system
+
+        if _is_screened(req.system):
+            element = atom_for_key(req.system)
+
+            def work(progress):
+                cloud = sample_screened_density(
+                    element.z, element.z, req.n, req.l, req.m, req.count,
+                    seed=req.seed, progress=lambda f: progress(0.9 * f), basis=req.basis,
+                )
+                psi = evaluate_screened_state(
+                    element.z, element.z, req.n, req.l, req.m,
+                    cloud.positions.astype(np.float64), basis=req.basis,
+                )
+                progress(1.0)
+                return SampleJobResult(cloud=cloud, psi=psi)
+
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(None, jobs.run, job.id, work)
+            return _job_model(job)
+
+        sys_ = _resolve_system(req.system)
 
         def work(progress):
             cloud = sample_density(
@@ -667,15 +686,25 @@ def create_app() -> FastAPI:
 
     @app.post("/api/jobs/plane", response_model=JobModel)
     async def create_plane_job(req: PlaneRequest) -> JobModel:
-        if _is_screened(req.system):
-            raise HTTPException(
-                status_code=422,
-                detail="screened-atom orbitals: 3-D cloud / 2-D plane arrive in a later phase",
-            )
         _validate_state(req.n, req.l, req.m)
-        sys_ = _resolve_system(req.system)
         job = jobs.create()
         app.state.job_systems[job.id] = req.system
+
+        if _is_screened(req.system):
+            element = atom_for_key(req.system)
+
+            def work(progress):
+                return screened_plane_grid(
+                    element.z, element.z, req.n, req.l, req.m,
+                    quantity=req.quantity, basis=req.basis,
+                    resolution=req.resolution, progress=progress,
+                )
+
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(None, jobs.run, job.id, work)
+            return _job_model(job)
+
+        sys_ = _resolve_system(req.system)
 
         def work(progress):
             return plane_grid(
