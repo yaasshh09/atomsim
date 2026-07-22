@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from atomsim.analytic.wavefunction import evaluate_state
-from atomsim.plane import default_half_extent, plane_grid
+from atomsim.plane import default_half_extent, plane_grid, screened_plane_grid
 from atomsim.provenance import Fidelity
 
 
@@ -65,3 +65,28 @@ def test_progress_monotone_to_one():
     plane_grid(1, 0, 0, resolution=8, progress=seen.append)
     assert seen[-1] == pytest.approx(1.0)
     assert all(b >= a for a, b in zip(seen, seen[1:]))
+
+
+def test_screened_plane_is_approximation_and_real_signed():
+    pg = screened_plane_grid(11, 11, 3, 1, 0, quantity="psi", resolution=64)
+    assert pg.provenance.fidelity is Fidelity.APPROXIMATION
+    assert pg.values.shape == (64, 64)
+    assert np.isrealobj(pg.values)
+    assert np.isfinite(pg.values).all()
+    assert pg.Z == 11
+
+
+def test_screened_plane_node_count_along_axis():
+    # Na 3s density: 2 radial nodes -> the signed psi along +z axis changes sign twice.
+    pg = screened_plane_grid(11, 11, 3, 0, 0, quantity="psi", resolution=401)
+    mid = pg.values.shape[1] // 2           # x = 0 column
+    col = pg.values[pg.values.shape[0] // 2 :, mid]  # z >= 0 half-ray
+    nz = col[np.abs(col) > np.max(np.abs(col)) * 1e-3]
+    sign_changes = int(np.sum(np.diff(np.sign(nz)) != 0))
+    assert sign_changes == 2
+
+
+def test_hydrogen_plane_unchanged_exact():
+    pg = plane_grid(2, 1, 0, quantity="psi", resolution=32)
+    assert pg.provenance.fidelity is Fidelity.EXACT
+    assert pg.values.shape == (32, 32)
