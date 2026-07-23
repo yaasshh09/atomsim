@@ -37,7 +37,8 @@ from atomsim.atoms import (
 from atomsim.classical import classical_ghost
 from atomsim.constants import ALPHA, BOHR_RADIUS_PM, HARTREE_EV
 from atomsim.constants_lab import analyze_constants
-from atomsim.numerics.force_law import PRESETS, force_law_levels
+from atomsim.numerics.expression import ExpressionError
+from atomsim.numerics.force_law import PRESETS, force_law_levels, free_form_levels
 from atomsim.plane import PlaneGrid, plane_grid, screened_plane_grid
 from atomsim.provenance import Field, Quantity
 from atomsim.sampling import SampleCloud, sample_density, sample_screened_density
@@ -469,27 +470,37 @@ def create_app() -> FastAPI:
         v0: float = 2.0,
         a: float = 3.0,
         core: float = 0.2,
+        expr: str | None = None,
     ) -> ForceLawModel:
-        if preset not in PRESETS:
-            raise HTTPException(
-                status_code=422,
-                detail=f"unknown preset {preset!r}; known: {sorted(PRESETS)}",
-            )
         if l < 0:
             raise HTTPException(status_code=422, detail=f"l must be >= 0, got {l}")
         if not 1 <= n_states <= 8:
             raise HTTPException(
                 status_code=422, detail=f"n_states must be in [1, 8], got {n_states}"
             )
-        supplied = {
-            "p": p, "lambda": lambda_, "omega": omega, "v0": v0, "a": a, "core": core,
-        }
-        params = {spec.name: supplied[spec.name] for spec in PRESETS[preset].params}
         sys_ = _resolve_system(system)
-        try:
-            result = force_law_levels(preset, params, l=l, system=sys_, n_states=n_states)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        if preset == "custom":
+            if not expr or not expr.strip():
+                raise HTTPException(status_code=422, detail="custom preset requires 'expr'")
+            try:
+                result = free_form_levels(expr, l=l, system=sys_, n_states=n_states)
+            except (ExpressionError, ValueError) as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        else:
+            if preset not in PRESETS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"unknown preset {preset!r}; known: {sorted(PRESETS)}",
+                )
+            supplied = {
+                "p": p, "lambda": lambda_, "omega": omega, "v0": v0, "a": a, "core": core,
+            }
+            params = {spec.name: supplied[spec.name] for spec in PRESETS[preset].params}
+            try:
+                result = force_law_levels(preset, params, l=l, system=sys_, n_states=n_states)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         curve = result.potential_curve
         return ForceLawModel(
@@ -503,6 +514,7 @@ def create_app() -> FastAPI:
                     radial_index=c.radial_index,
                     energy=QuantityModel.from_quantity(c.energy),
                     energy_ev=QuantityModel.from_quantity(_to_ev(c.energy)),
+                    trusted=c.trusted,
                 )
                 for c in result.counterfactual
             ],
@@ -530,6 +542,7 @@ def create_app() -> FastAPI:
                     )
                 ),
             ),
+            expression=result.expression,
         )
 
     @app.get("/api/radial/{n}/{l}", response_model=RadialResponse)

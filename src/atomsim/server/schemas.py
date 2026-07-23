@@ -238,6 +238,7 @@ class ForceLawLevelModel(BaseModel):
     radial_index: int
     energy: QuantityModel
     energy_ev: QuantityModel
+    trusted: bool = True
 
 
 class ReferenceItemModel(BaseModel):
@@ -268,6 +269,7 @@ class ForceLawModel(BaseModel):
     requested_count: int
     reference: ReferenceModel
     potential_curve: PotentialCurveModel
+    expression: str | None = None
 
 
 class LineModel(BaseModel):

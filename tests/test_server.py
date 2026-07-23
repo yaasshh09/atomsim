@@ -626,3 +626,24 @@ def test_spectrum_hydrogenic_unchanged(client):
     body = client.get("/api/spectrum?system=h&n_max=3").json()
     assert body["system"]["kind"] == "hydrogenic"
     assert body["reference_citation"] is not None  # H I NIST data still compared
+
+
+def test_forcelaw_custom_recovers_hydrogen(client):
+    r = client.get("/api/forcelaw", params={"preset": "custom", "expr": "-1/r", "l": 0})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["expression"] == "-1/r"
+    assert body["preset"] == "custom"
+    assert body["counterfactual"][0]["trusted"] is True
+    assert body["counterfactual"][0]["energy"]["provenance"]["fidelity"] == "numerical"
+
+
+def test_forcelaw_custom_missing_expr_is_422(client):
+    r = client.get("/api/forcelaw", params={"preset": "custom", "l": 0})
+    assert r.status_code == 422
+
+
+def test_forcelaw_custom_rejects_unsafe_expr(client):
+    r = client.get("/api/forcelaw", params={"preset": "custom", "expr": "r.__class__"})
+    assert r.status_code == 422
+    assert "not allowed" in r.json()["detail"]
