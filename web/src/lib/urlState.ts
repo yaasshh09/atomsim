@@ -4,7 +4,14 @@
 import type { Basis, ConstMultipliers, PlaneQuantity } from "../api/client";
 import type { ColorMode, ViewMode } from "../state/store";
 import type { NucleusMode } from "./nucleus";
-import { PRESET_PARAMS, clampParam, defaultParams, type ForcePreset } from "./forceLaw";
+import {
+  DEFAULT_EXPR,
+  PRESET_PARAMS,
+  clampParam,
+  defaultParams,
+  validateExprClient,
+  type ForcePreset,
+} from "./forceLaw";
 import { clampState } from "./quantum";
 import { CONST_MAX, CONST_MIN, CONSTANT_KEYS, type ConstantKey } from "./whatif";
 
@@ -25,6 +32,8 @@ export interface UrlState {
   forcePreset: ForcePreset;
   forceParams: Record<string, number>;
   forceL: number;
+  /** custom force-law expression V(r); only meaningful when forcePreset==="custom" */
+  forceExpr: string;
   /** screened-atom electron configuration; null = Aufbau ground (default) */
   config: string | null;
 }
@@ -46,6 +55,7 @@ export const URL_DEFAULTS: UrlState = {
   forcePreset: "powerlaw",
   forceParams: defaultParams("powerlaw"),
   forceL: 0,
+  forceExpr: DEFAULT_EXPR,
   config: null,
 };
 
@@ -66,6 +76,7 @@ const FORCE_PRESETS: ForcePreset[] = [
   "harmonic",
   "finitewell",
   "coulombcore",
+  "custom",
 ];
 const SYSTEM_KEY = /^[a-z0-9+-]{1,16}$/;
 
@@ -170,6 +181,13 @@ export function parseAppUrl(search: string): Partial<UrlState> {
   const fl = pickInt(q.get("fl"));
   if (fl !== undefined && fl >= 0) out.forceL = fl;
 
+  // Custom force-law expression: only read for the custom preset, and only when
+  // the lightweight client check passes (the server AST parser is the authority).
+  if (out.forcePreset === "custom") {
+    const rawExpr = q.get("expr");
+    if (rawExpr !== null && validateExprClient(rawExpr) === null) out.forceExpr = rawExpr;
+  }
+
   const config = q.get("config");
   if (config !== null && CONFIG_RE.test(config)) out.config = config;
 
@@ -202,6 +220,9 @@ export function serializeAppUrl(state: UrlState): string {
     if (v !== undefined && Math.abs(v - spec.default) > 1e-9) q.set(spec.name, String(v));
   }
   if (state.forceL !== URL_DEFAULTS.forceL) q.set("fl", String(state.forceL));
+  if (state.forcePreset === "custom" && state.forceExpr !== URL_DEFAULTS.forceExpr) {
+    q.set("expr", state.forceExpr);
+  }
   if (state.config) q.set("config", state.config);
   // note: '+' stays percent-encoded (%2B) — a literal '+' in a query string
   // reads back as a space, which would break the he+ round-trip

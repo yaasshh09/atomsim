@@ -190,6 +190,7 @@ export interface ForceLawLevel {
   radial_index: number;
   energy: Quantity;
   energy_ev: Quantity;
+  trusted: boolean;
 }
 
 export interface ReferenceItem {
@@ -220,6 +221,7 @@ export interface ForceLawResult {
   requested_count: number;
   reference: Reference;
   potential_curve: PotentialCurve;
+  expression: string | null;
 }
 
 export type JobStatus = "pending" | "running" | "done" | "error";

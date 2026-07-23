@@ -5,7 +5,11 @@ export type ForcePreset =
   | "yukawa"
   | "harmonic"
   | "finitewell"
-  | "coulombcore";
+  | "coulombcore"
+  | "custom";
+
+/** Default expression for the custom force law: hydrogen's own -Z/r. */
+export const DEFAULT_EXPR = "-1/r";
 
 export interface ParamSpec {
   name: string;
@@ -25,6 +29,7 @@ export const PRESET_PARAMS: Record<ForcePreset, ParamSpec[]> = {
     { name: "a", min: 0.5, max: 10, default: 3, unit: "a₀", step: 0.5 },
   ],
   coulombcore: [{ name: "core", min: 0, max: 1, default: 0.2, unit: "", step: 0.05 }],
+  custom: [],
 };
 
 export const PRESET_LABELS: Record<ForcePreset, string> = {
@@ -33,7 +38,21 @@ export const PRESET_LABELS: Record<ForcePreset, string> = {
   harmonic: "Harmonic  ½kr²",
   finitewell: "Finite well  −V₀ (r<a)",
   coulombcore: "Coulomb + core  −Z/r + c/r²",
+  custom: "Custom  V(r) = …",
 };
+
+/** Lightweight client pre-check only; the server AST parser is the authority. */
+export function validateExprClient(expr: string): string | null {
+  if (!expr.trim()) return "Enter an expression in r";
+  if (expr.length > 200) return "Expression is too long (max 200 characters)";
+  let depth = 0;
+  for (const ch of expr) {
+    if (ch === "(") depth++;
+    else if (ch === ")" && --depth < 0) return "Unbalanced parentheses";
+  }
+  if (depth !== 0) return "Unbalanced parentheses";
+  return null;
+}
 
 export function defaultParams(preset: ForcePreset): Record<string, number> {
   const out: Record<string, number> = {};

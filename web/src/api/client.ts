@@ -102,6 +102,7 @@ export function getForceLaw(
   params: Record<string, number>,
   l: number,
   nStates = 4,
+  expr?: string,
 ): Promise<ForceLawResult> {
   const q = new URLSearchParams({
     system,
@@ -110,6 +111,7 @@ export function getForceLaw(
     n_states: String(nStates),
   });
   for (const [k, v] of Object.entries(params)) q.set(k, String(v));
+  if (expr !== undefined) q.set("expr", expr);
   return getJson(`/api/forcelaw?${q.toString()}`);
 }
 

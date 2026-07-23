@@ -98,6 +98,7 @@ describe("serializeAppUrl", () => {
       forcePreset: "powerlaw" as const,
       forceParams: { p: 1.0 },
       forceL: 0,
+      forceExpr: "-1/r",
       config: null,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
@@ -128,6 +129,20 @@ describe("force-law url state", () => {
     expect(back.forcePreset).toBe("yukawa");
     expect(back.forceParams.lambda).toBe(5);
     expect(back.forceL).toBe(1);
+  });
+
+  it("round-trips a custom V(r) deep link", () => {
+    const state = {
+      ...URL_DEFAULTS,
+      view: "forcelaw" as const,
+      forcePreset: "custom" as const,
+      forceExpr: "-exp(-r)/r",
+    };
+    const q = serializeAppUrl(state);
+    expect(q).toContain("preset=custom");
+    const back = { ...URL_DEFAULTS, ...parseAppUrl(q) };
+    expect(back.forcePreset).toBe("custom");
+    expect(back.forceExpr).toBe("-exp(-r)/r");
   });
 
   it("omits preset for the default power-law and reads p", () => {

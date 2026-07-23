@@ -14,7 +14,13 @@ import type {
   StateResponse,
   SystemInfo,
 } from "../api/types";
-import { PRESET_PARAMS, clampParam, defaultParams, type ForcePreset } from "../lib/forceLaw";
+import {
+  DEFAULT_EXPR,
+  PRESET_PARAMS,
+  clampParam,
+  defaultParams,
+  type ForcePreset,
+} from "../lib/forceLaw";
 import type { NucleusMode } from "../lib/nucleus";
 import { clampState } from "../lib/quantum";
 import { isAlphaValid } from "../lib/whatif";
@@ -77,12 +83,14 @@ interface AppState {
   forcePreset: ForcePreset;
   forceParams: Record<string, number>;
   forceL: number;
+  forceExpr: string;
   forceViz: "well" | "ladder";
   forceLaw: ForceLawResult | null;
   forceStatus: SampleStatus;
   setForcePreset: (preset: ForcePreset) => void;
   setForceParam: (name: string, value: number) => void;
   setForceL: (l: number) => void;
+  setForceExpr: (expr: string) => void;
   setForceViz: (viz: "well" | "ladder") => void;
   loadForceLaw: () => Promise<void>;
   setGhost: (on: boolean) => void;
@@ -152,6 +160,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   forcePreset: "powerlaw",
   forceParams: defaultParams("powerlaw"),
   forceL: 0,
+  forceExpr: DEFAULT_EXPR,
   forceViz: "well",
   forceLaw: null,
   forceStatus: "idle",
@@ -227,12 +236,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setForceL: (l) =>
     set({ forceL: Math.max(0, Math.round(l)), forceLaw: null, forceStatus: "idle" }),
+  setForceExpr: (expr) => set({ forceExpr: expr, forceLaw: null, forceStatus: "idle" }),
   setForceViz: (viz) => set({ forceViz: viz }),
   loadForceLaw: async () => {
-    const { forcePreset, forceParams, forceL, system } = get();
+    const { forcePreset, forceParams, forceL, forceExpr, system } = get();
     set({ forceStatus: "sampling", error: null });
     try {
-      const forceLaw = await client.getForceLaw(system, forcePreset, forceParams, forceL);
+      const expr = forcePreset === "custom" ? forceExpr : undefined;
+      const forceLaw = await client.getForceLaw(
+        system, forcePreset, forceParams, forceL, undefined, expr,
+      );
       set({ forceLaw, forceStatus: "ready" });
     } catch (err) {
       set({ forceStatus: "error", error: err instanceof Error ? err.message : String(err) });
