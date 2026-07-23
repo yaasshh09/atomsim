@@ -25,6 +25,7 @@ from atomsim.analytic.hydrogen import (
     validate_quantum_numbers,
 )
 from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
+from atomsim.analytic.zeeman import zeeman_sublevels
 from atomsim.atoms import (
     ATOM_KEYS,
     atom_for_key,
@@ -95,6 +96,15 @@ class GrossLevelModel(BaseModel):
     energy_ev: QuantityModel
 
 
+class ZeemanSublevelModel(BaseModel):
+    m_j: float
+    branch: str
+    j_label: float
+    high_field_label: str
+    energy: QuantityModel
+    energy_ev: QuantityModel
+
+
 class FineLevelModel(BaseModel):
     n: int
     l: int
@@ -103,6 +113,7 @@ class FineLevelModel(BaseModel):
     energy_ev: QuantityModel
     shift: QuantityModel
     shift_ev: QuantityModel
+    sublevels: list[ZeemanSublevelModel] | None = None
 
 
 class LevelsResponse(BaseModel):
@@ -113,6 +124,7 @@ class LevelsResponse(BaseModel):
     gross: list[GrossLevelModel]
     fine: list[FineLevelModel] | None
     dirac: bool = False
+    b_field: float = 0.0
 
 
 class StateResponse(BaseModel):
@@ -377,7 +389,8 @@ def create_app() -> FastAPI:
                         fine_structure: bool = False,
                         alpha: float | None = None,
                         config: str | None = None,
-                        dirac: bool = False):
+                        dirac: bool = False,
+                        b_field: float = 0.0):
         if _is_screened(system):
             element = atom_for_key(system)
             cfg = _resolve_config(system, config)
@@ -404,6 +417,8 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=422, detail="n_max must be in [1, 10]")
         if alpha is not None and not 0.0 < alpha <= 0.5:
             raise HTTPException(status_code=422, detail="alpha must be in (0, 0.5]")
+        if b_field < 0.0:
+            raise HTTPException(status_code=422, detail="b_field must be >= 0")
         sys_ = _resolve_system(system)
         mu = sys_.mu_ratio.value
         alpha_used = ALPHA if alpha is None else alpha
@@ -443,17 +458,34 @@ def create_app() -> FastAPI:
                                 n, l, j, Z=sys_.Z, mu_ratio=mu,
                                 m_over_M=sys_.m_over_M, alpha=alpha_used,
                             )
+                        subs = None
+                        if b_field > 0.0:
+                            zss = zeeman_sublevels(
+                                n, l, Z=sys_.Z, mu_ratio=mu, m_over_M=sys_.m_over_M,
+                                alpha=alpha_used, b_tesla=b_field, dirac=dirac,
+                            )
+                            subs = [
+                                ZeemanSublevelModel(
+                                    m_j=z.m_j, branch=z.branch, j_label=z.j_label,
+                                    high_field_label=z.high_field_label,
+                                    energy=QuantityModel.from_quantity(z.energy),
+                                    energy_ev=QuantityModel.from_quantity(_to_ev(z.energy)),
+                                )
+                                for z in zss
+                                if z.j_label == j
+                            ]
                         fine.append(FineLevelModel(
                             n=n, l=l, j=j,
                             energy=QuantityModel.from_quantity(le),
                             energy_ev=QuantityModel.from_quantity(_to_ev(le)),
                             shift=QuantityModel.from_quantity(sh),
                             shift_ev=QuantityModel.from_quantity(_to_ev(sh)),
+                            sublevels=subs,
                         ))
         return LevelsResponse(
             system=SystemModel.from_system(sys_), n_max=n_max,
             fine_structure=fine_structure, alpha=alpha_used, gross=gross, fine=fine,
-            dirac=dirac,
+            dirac=dirac, b_field=b_field,
         )
 
     @app.get("/api/constants", response_model=ConstantsReportModel)

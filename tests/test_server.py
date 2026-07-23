@@ -676,3 +676,34 @@ def test_levels_dirac_high_z_rejected(client):
     # directly in tests/test_dirac.py::test_supercritical_is_rejected.
     r = client.get("/api/levels", params={"system": "z200", "n_max": 1, "dirac": "true"})
     assert r.status_code == 422
+
+
+def test_levels_zeeman_splits_fine_levels(client):
+    r = client.get("/api/levels?system=h&n_max=3&fine_structure=true&b_field=2")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["b_field"] == 2.0
+    # A 2p level (l=1) fans into its m_j sublevels.
+    p = next(f for f in body["fine"] if f["n"] == 2 and f["l"] == 1 and f["j"] == 1.5)
+    assert p["sublevels"] is not None and len(p["sublevels"]) == 4  # m_j = +-3/2, +-1/2
+    s0 = p["sublevels"][0]
+    assert s0["energy"]["provenance"]["fidelity"] == "approximation"
+    assert "m_l" in s0["high_field_label"]
+
+
+def test_levels_zeeman_absent_without_field(client):
+    r = client.get("/api/levels?system=h&n_max=2&fine_structure=true")
+    body = r.json()
+    assert body["b_field"] == 0.0
+    assert all(f.get("sublevels") is None for f in body["fine"])
+
+
+def test_levels_zeeman_negative_field_rejected(client):
+    r = client.get("/api/levels?system=h&n_max=2&fine_structure=true&b_field=-1")
+    assert r.status_code == 422
+
+
+def test_levels_zeeman_ignored_for_screened(client):
+    r = client.get("/api/levels?system=he&fine_structure=true&b_field=5")
+    assert r.status_code == 200
+    assert "orbitals" in r.json()  # ScreenedLevelsModel, no sublevels
