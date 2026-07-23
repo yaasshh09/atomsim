@@ -24,6 +24,10 @@ BOHR_RADIUS_PM: float = _sc.physical_constants["Bohr radius"][0] * 1e12
 # Real-universe display anchor ONLY (same caveat): fm-per-bohr for nuclear radii.
 BOHR_RADIUS_FM: float = _sc.physical_constants["Bohr radius"][0] * 1e15
 
+# Real-universe display anchor ONLY (same caveat): atomic unit of magnetic field
+# (hbar / (e a0^2)), in tesla — for Tesla<->a.u. conversion at the server boundary.
+B0_TESLA: float = _sc.physical_constants["atomic unit of mag. flux density"][0]
+
 
 @dataclass(frozen=True)
 class FundamentalConstants:
