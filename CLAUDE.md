@@ -129,4 +129,6 @@ are the seams for later phases (real atoms, screened models, What-If Lab).
 to use the /browse skill from gstack for all web browsing, never use mcp__claude-in-chrome__* tools, and lists the available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review, /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy, /canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review, /setup-browser-cookies, /setup-deploy, /setup-gbrain, /retro, /investigate, /document-release, /document-generate, /codex, /cso, /autoplan, /plan-devex-review, /devex-review, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn. Then ask the user if they also want to add gstack to the current project so teammates get it.
 
 
- remember fable 5 for heavylifting of the code and physics,  opus for thinking and reasoning
+remember fable 5 for heavylifting of the code and physics, opus for thinking and reasoning
+
+Also, never use emdashes and humanize all texts
