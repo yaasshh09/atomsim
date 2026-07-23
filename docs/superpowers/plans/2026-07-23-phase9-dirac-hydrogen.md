@@ -30,7 +30,7 @@
 - Consumes: `energy` (Bohr), `ALPHA`, `Quantity`/`Provenance`/`Fidelity`, `fine_structure_shift` (test only).
 - Produces: `dirac_energy(n: int, j: float, Z: int = 1, mu_ratio: float = 1.0, alpha: float = ALPHA) -> Quantity`; `dirac_fine_splitting(n: int, l: int, Z: int = 1, mu_ratio: float = 1.0, alpha: float = ALPHA) -> float`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # tests/test_dirac.py
@@ -106,9 +106,9 @@ def test_invalid_j_rejected():
         dirac_energy(2, 2.5)  # j must be in {1/2, 3/2} for n=2
 ```
 
-- [ ] **Step 2: Run to verify fail** — `MKL_THREADING_LAYER=SEQUENTIAL <env>/python.exe -m pytest tests/test_dirac.py -q` → ImportError.
+- [x] **Step 2: Run to verify fail** — `MKL_THREADING_LAYER=SEQUENTIAL <env>/python.exe -m pytest tests/test_dirac.py -q` → ImportError.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 # src/atomsim/analytic/dirac.py
@@ -191,9 +191,9 @@ def dirac_fine_splitting(
     return hi - lo
 ```
 
-- [ ] **Step 4: Run** — `pytest tests/test_dirac.py -q` → PASS. `ruff check src/atomsim/analytic/dirac.py tests/test_dirac.py`.
+- [x] **Step 4: Run** — `pytest tests/test_dirac.py -q` → PASS. `ruff check src/atomsim/analytic/dirac.py tests/test_dirac.py`.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Add exact Dirac-Coulomb hydrogen energy (EXACT, cross-checked vs perturbative)"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Add exact Dirac-Coulomb hydrogen energy (EXACT, cross-checked vs perturbative)"`
 
 ---
 
@@ -207,7 +207,7 @@ def dirac_fine_splitting(
 - Consumes: `dirac_energy` (Task 1); existing `energy`, `FineLevelModel`.
 - Produces: `/api/levels?...&dirac=true`; `LevelsResponse.dirac: bool`.
 
-- [ ] **Step 1: Write failing tests** (append to `tests/test_server.py`):
+- [x] **Step 1: Write failing tests** (append to `tests/test_server.py`):
 
 ```python
 def test_levels_dirac_is_exact_and_degenerate(client):
@@ -237,9 +237,9 @@ def test_levels_dirac_supercritical_is_422(client):
     assert r.status_code == 422
 ```
 
-- [ ] **Step 2: Run to verify fail** — `pytest tests/test_server.py -k "dirac or perturbative_still" -q` → fail.
+- [x] **Step 2: Run to verify fail** — `pytest tests/test_server.py -k "dirac or perturbative_still" -q` → fail.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 - Import at top of app.py: `from atomsim.analytic.dirac import dirac_energy`.
 - `LevelsResponse`: add `dirac: bool = False`.
@@ -289,9 +289,9 @@ def test_levels_dirac_supercritical_is_422(client):
 ```
 - Add `from dataclasses import replace` if not already imported (app.py already imports `dataclasses`; use `dataclasses.replace` to avoid a new import).
 
-- [ ] **Step 4: Run** — `pytest tests/test_server.py -q` → PASS (all). `ruff check src/atomsim/server/`.
+- [x] **Step 4: Run** — `pytest tests/test_server.py -q` → PASS (all). `ruff check src/atomsim/server/`.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Serve exact Dirac levels from /api/levels behind a dirac flag"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Serve exact Dirac levels from /api/levels behind a dirac flag"`
 
 ---
 
@@ -304,7 +304,7 @@ def test_levels_dirac_supercritical_is_422(client):
 **Interfaces:**
 - Produces: store `dirac: boolean` + `setDirac`; `getLevels(..., dirac?)`; `LevelsResponse.dirac`; URL key `dirac`.
 
-- [ ] **Step 1: Write failing test** (append to `urlState.test.ts`):
+- [x] **Step 1: Write failing test** (append to `urlState.test.ts`):
 
 ```typescript
 it("round-trips the dirac toggle with fine structure", () => {
@@ -324,9 +324,9 @@ it("omits dirac when off or when fine structure is off", () => {
 ```
 Also update the existing full round-trip literal (the one listing every field) to include `dirac: false`.
 
-- [ ] **Step 2: Run to verify fail** — `npx vitest run src/lib/urlState.test.ts` → fail (missing `dirac`).
+- [x] **Step 2: Run to verify fail** — `npx vitest run src/lib/urlState.test.ts` → fail (missing `dirac`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `api/types.ts`: add `dirac: boolean;` to the `LevelsResponse` interface.
 
@@ -363,9 +363,9 @@ export function getLevels(
 
 `main.tsx`: add `dirac: s.dirac,` to the serialized-state object.
 
-- [ ] **Step 4: Run** — `npx vitest run src/lib/urlState.test.ts` → PASS.
+- [x] **Step 4: Run** — `npx vitest run src/lib/urlState.test.ts` → PASS.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Wire the Dirac level model through the store, client, and deep links"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Wire the Dirac level model through the store, client, and deep links"`
 
 ---
 
@@ -378,7 +378,7 @@ export function getLevels(
 **Interfaces:**
 - Consumes: store `dirac`/`setDirac`; `LevelsResponse.dirac`; fine-level provenance (already EXACT for Dirac).
 
-- [ ] **Step 1: Implement the UI**
+- [x] **Step 1: Implement the UI**
 
 In `LevelsView.tsx`:
 - Pull `dirac, setDirac` from the store; add `dirac` to the `useEffect` dependency array so toggling refetches:
@@ -396,13 +396,13 @@ In `LevelsView.tsx`:
 - Extend the caption so the Dirac case names the Lamb shift explicitly: when `dirac`, append a sentence: "Dirac is exact for a point nucleus — energy depends on n and j only, so 2s₁/₂ and 2p₁/₂ coincide exactly; the real splitting is the Lamb shift (QED), which this model omits." Keep the existing α² wording for the perturbative case.
 - The fine badge already reads `fineForN[0].shift.provenance`, which is EXACT in Dirac mode — no change needed.
 
-- [ ] **Step 2: Typecheck + build** — `npm run build` → clean.
+- [x] **Step 2: Typecheck + build** — `npm run build` → clean.
 
-- [ ] **Step 3: Full suites** — from repo root `pytest -q` and `ruff check .`; from `web/` `npm test`. All green.
+- [x] **Step 3: Full suites** — from repo root `pytest -q` and `ruff check .`; from `web/` `npm test`. All green.
 
-- [ ] **Step 4: Live smoke** — `atomsim serve --port 8022 --no-browser` (background); via env-python urllib GET `/api/levels?system=h&n_max=3&dirac=true` → `dirac:true`, first fine fidelity `exact`, the two `n=2 j=0.5` energies equal; GET `?system=z200&n_max=1&dirac=true` → 422. Stop the server.
+- [x] **Step 4: Live smoke** — `atomsim serve --port 8022 --no-browser` (background); via env-python urllib GET `/api/levels?system=h&n_max=3&dirac=true` → `dirac:true`, first fine fidelity `exact`, the two `n=2 j=0.5` energies equal; GET `?system=z200&n_max=1&dirac=true` → 422. Stop the server.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Add the Dirac exact/perturbative toggle and Lamb-shift caption to the Levels view"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Add the Dirac exact/perturbative toggle and Lamb-shift caption to the Levels view"`
 
 ---
 
