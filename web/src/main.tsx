@@ -20,6 +20,7 @@ useAppStore.subscribe((s) => {
     colorMode: s.colorMode,
     fineStructure: s.fineStructure,
     dirac: s.dirac,
+    bField: s.bField,
     ghost: s.ghost,
     nucleusMode: s.nucleusMode,
     planeQuantity: s.planeQuantity,

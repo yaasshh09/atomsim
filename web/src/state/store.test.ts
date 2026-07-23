@@ -188,4 +188,11 @@ describe("force-law slice", () => {
     expect(useAppStore.getState().config).toBe("1s2 2s2 2p6 3p1");
     expect(useAppStore.getState().levels).toBeNull();
   });
+
+  it("setBField clears cached levels", () => {
+    useAppStore.setState({ levels: { fake: true } as never, bField: 0 });
+    useAppStore.getState().setBField(4);
+    expect(useAppStore.getState().bField).toBe(4);
+    expect(useAppStore.getState().levels).toBeNull();
+  });
 });

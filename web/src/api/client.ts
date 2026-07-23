@@ -71,12 +71,14 @@ export function getLevels(
   alpha?: number,
   config?: string | null,
   dirac = false,
+  bField = 0,
 ): Promise<LevelsResponse | ScreenedLevels> {
   const a = alpha === undefined ? "" : `&alpha=${alpha}`;
   const c = config ? `&config=${encodeURIComponent(config)}` : "";
   const d = dirac ? "&dirac=true" : "";
+  const b = bField > 0 ? `&b_field=${bField}` : "";
   return getJson(
-    `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}${a}${c}${d}`,
+    `/api/levels?system=${system}&n_max=${nMax}&fine_structure=${fineStructure}${a}${c}${d}${b}`,
   );
 }
 

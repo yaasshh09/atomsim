@@ -100,6 +100,7 @@ describe("serializeAppUrl", () => {
       forceL: 0,
       forceExpr: "-1/r",
       dirac: false,
+      bField: 0,
       config: null,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
@@ -209,5 +210,23 @@ describe("dirac level-model url state", () => {
     expect(
       serializeAppUrl({ ...URL_DEFAULTS, fineStructure: false, dirac: true }),
     ).not.toContain("dirac");
+  });
+});
+
+describe("zeeman b-field url state", () => {
+  it("round-trips the b_field with fine structure", () => {
+    const url = serializeAppUrl({ ...URL_DEFAULTS, fineStructure: true, bField: 2.5 });
+    expect(url).toContain("b=2.5");
+    expect(parseAppUrl(url).bField).toBe(2.5);
+  });
+
+  it("omits b when field is zero", () => {
+    const url = serializeAppUrl({ ...URL_DEFAULTS, fineStructure: true, bField: 0 });
+    expect(url).not.toContain("b=");
+  });
+
+  it("omits b when fine structure is off", () => {
+    const url = serializeAppUrl({ ...URL_DEFAULTS, fineStructure: false, bField: 3 });
+    expect(url).not.toContain("b=");
   });
 });

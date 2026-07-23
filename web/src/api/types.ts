@@ -81,6 +81,15 @@ export interface GrossLevel {
   energy_ev: Quantity;
 }
 
+export interface ZeemanSublevel {
+  m_j: number;
+  branch: string;
+  j_label: number;
+  high_field_label: string;
+  energy: Quantity;
+  energy_ev: Quantity;
+}
+
 export interface FineLevel {
   n: number;
   l: number;
@@ -89,6 +98,7 @@ export interface FineLevel {
   energy_ev: Quantity;
   shift: Quantity;
   shift_ev: Quantity;
+  sublevels?: ZeemanSublevel[] | null;
 }
 
 export interface LevelsResponse {
@@ -99,6 +109,7 @@ export interface LevelsResponse {
   gross: GrossLevel[];
   fine: FineLevel[] | null;
   dirac: boolean;
+  b_field: number;
 }
 
 export interface ScreenedOrbital {

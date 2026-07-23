@@ -48,6 +48,7 @@ interface AppState {
   colorMode: ColorMode;
   fineStructure: boolean;
   dirac: boolean;
+  bField: number;
   nucleusMode: NucleusMode;
   count: number;
   systems: SystemInfo[];
@@ -107,6 +108,7 @@ interface AppState {
   setColorMode: (colorMode: ColorMode) => void;
   setFineStructure: (fineStructure: boolean) => void;
   setDirac: (dirac: boolean) => void;
+  setBField: (bField: number) => void;
   setNucleusMode: (nucleusMode: NucleusMode) => void;
   setCount: (count: number) => void;
   setPlaneQuantity: (planeQuantity: PlaneQuantity) => void;
@@ -148,6 +150,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   colorMode: "solid",
   fineStructure: false,
   dirac: false,
+  bField: 0,
   nucleusMode: "marker",
   count: 100_000,
   systems: [],
@@ -198,6 +201,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setFineStructure: (fineStructure) =>
     set({ fineStructure, stateInfo: null, levels: null, spectrum: null }),
   setDirac: (dirac) => set({ dirac, levels: null }),
+  setBField: (bField) => set({ bField, levels: null }),
   // pure render choice: nothing physical to invalidate
   setNucleusMode: (nucleusMode) => set({ nucleusMode }),
   setCount: (count) => set({ count }),
@@ -350,10 +354,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ radial: await client.getRadial(n, l, system) });
   },
   loadLevels: async () => {
-    const { system, fineStructure, config, dirac } = get();
+    const { system, fineStructure, config, dirac, bField } = get();
     set({
       levels: await client.getLevels(
-        system, N_MAX_DIAGRAM, fineStructure, undefined, config, dirac,
+        system, N_MAX_DIAGRAM, fineStructure, undefined, config, dirac, bField,
       ),
     });
   },
