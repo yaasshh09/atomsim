@@ -29,7 +29,7 @@
 **Interfaces:**
 - Produces: `compile_potential(expr: str) -> Callable[[np.ndarray], np.ndarray]`; `ExpressionError(ValueError)`. Allowed names: `r`, `pi`, `e`. Allowed funcs: `exp log log10 sqrt sin cos tan sinh cosh tanh abs sign minimum maximum where`. DoS caps: length ≤ 200, node count ≤ 80, literal `**` exponent `|k| ≤ 12`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # tests/test_expression.py
@@ -91,9 +91,9 @@ def test_error_message_names_construct():
         compile_potential("r.real")
 ```
 
-- [ ] **Step 2: Run to verify fail** — `pytest tests/test_expression.py -q` → ImportError / fail.
+- [x] **Step 2: Run to verify fail** — `pytest tests/test_expression.py -q` → ImportError / fail.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 # src/atomsim/numerics/expression.py
@@ -219,9 +219,9 @@ def _eval(node: ast.AST, r: np.ndarray) -> np.ndarray:
     raise ExpressionError(f"{type(node).__name__} is not allowed")  # defense in depth
 ```
 
-- [ ] **Step 4: Run** — `pytest tests/test_expression.py -q` → PASS. Then `ruff check src/atomsim/numerics/expression.py tests/test_expression.py`.
+- [x] **Step 4: Run** — `pytest tests/test_expression.py -q` → PASS. Then `ruff check src/atomsim/numerics/expression.py tests/test_expression.py`.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Add whitelist-AST safe compiler for custom V(r) expressions"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Add whitelist-AST safe compiler for custom V(r) expressions"`
 
 ---
 
@@ -235,7 +235,7 @@ def _eval(node: ast.AST, r: np.ndarray) -> np.ndarray:
 - Consumes: `compile_potential` (Task 1); existing `solve_radial_with_error`, `_sample_curve`, `_hydrogen_reference`, `ForceLawResult`, `ForceLawLevel`.
 - Produces: `free_form_levels(expr: str, l: int, system: str | System = "h", n_states: int = 4) -> ForceLawResult`. `ForceLawLevel` gains `trusted: bool = True`; `ForceLawResult` gains `expression: str | None = None`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # tests/test_free_form.py
@@ -282,9 +282,9 @@ def test_purely_positive_has_no_trusted_bound_states():
     assert res.bound_count == 0
 ```
 
-- [ ] **Step 2: Run to verify fail** — `pytest tests/test_free_form.py -q` → ImportError.
+- [x] **Step 2: Run to verify fail** — `pytest tests/test_free_form.py -q` → ImportError.
 
-- [ ] **Step 3: Implement** — add to `src/atomsim/numerics/force_law.py`:
+- [x] **Step 3: Implement** — add to `src/atomsim/numerics/force_law.py`:
 
 Add field to the dataclasses (keep presets identical via defaults):
 ```python
@@ -393,9 +393,9 @@ def free_form_levels(
     )
 ```
 
-- [ ] **Step 4: Run** — `pytest tests/test_free_form.py -q` → PASS. Confirm presets still green: `pytest tests/ -k force_law -q`. Then `ruff check src/atomsim/numerics/force_law.py tests/test_free_form.py`.
+- [x] **Step 4: Run** — `pytest tests/test_free_form.py -q` → PASS. Confirm presets still green: `pytest tests/ -k force_law -q`. Then `ruff check src/atomsim/numerics/force_law.py tests/test_free_form.py`.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Solve custom V(r) with a box-doubling and grid-halving trust gate"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Solve custom V(r) with a box-doubling and grid-halving trust gate"`
 
 ---
 
@@ -409,7 +409,7 @@ def free_form_levels(
 - Consumes: `free_form_levels` (Task 2).
 - Produces: `/api/forcelaw?preset=custom&expr=...` → `ForceLawModel` with `expression: str | None` and per-level `trusted: bool`. Parse errors → HTTP 422.
 
-- [ ] **Step 1: Write failing tests** (append to `tests/test_server.py`, reuse its existing `client` fixture pattern):
+- [x] **Step 1: Write failing tests** (append to `tests/test_server.py`, reuse its existing `client` fixture pattern):
 
 ```python
 def test_forcelaw_custom_recovers_hydrogen(client):
@@ -433,9 +433,9 @@ def test_forcelaw_custom_rejects_unsafe_expr(client):
     assert "not allowed" in r.json()["detail"]
 ```
 
-- [ ] **Step 2: Run to verify fail** — `pytest tests/test_server.py -k custom -q` → fail (422 vs 200 / missing field).
+- [x] **Step 2: Run to verify fail** — `pytest tests/test_server.py -k custom -q` → fail (422 vs 200 / missing field).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `schemas.py`, add `trusted: bool = True` to `ForceLawLevelModel` and `expression: str | None = None` to `ForceLawModel`.
 
@@ -460,9 +460,9 @@ In `app.py`:
 ```
 - Refactor the existing response construction (the `return ForceLawModel(...)` block) into a helper `_forcelaw_response(result, sys_) -> ForceLawModel` so both paths share it; set `expression=result.expression` and `trusted=c.trusted` inside it.
 
-- [ ] **Step 4: Run** — `pytest tests/test_server.py -q` → PASS (all, including existing preset tests through the refactored helper). `ruff check src/atomsim/server/`.
+- [x] **Step 4: Run** — `pytest tests/test_server.py -q` → PASS (all, including existing preset tests through the refactored helper). `ruff check src/atomsim/server/`.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Serve custom V(r) force laws with trust flags from /api/forcelaw"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Serve custom V(r) force laws with trust flags from /api/forcelaw"`
 
 ---
 
@@ -475,7 +475,7 @@ In `app.py`:
 **Interfaces:**
 - Produces: `ForcePreset` union includes `"custom"`; `DEFAULT_EXPR = "-1/r"`; `validateExprClient(expr: string): string | null`; store `forceExpr`/`setForceExpr`; `getForceLaw` accepts `expr`; URL key `expr`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // web/src/lib/forceLaw.test.ts (append)
@@ -502,9 +502,9 @@ test("custom preset round-trips the expression", () => {
 ```
 (Match the actual import names of the existing urlState test — `decodeState`/`parseState`; mirror whatever the file already uses.)
 
-- [ ] **Step 2: Run to verify fail** — `cd web && npx vitest run src/lib/forceLaw.test.ts` → fail.
+- [x] **Step 2: Run to verify fail** — `cd web && npx vitest run src/lib/forceLaw.test.ts` → fail.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `forceLaw.ts`: add `"custom"` to the `ForcePreset` union; `PRESET_PARAMS.custom = []`; `PRESET_LABELS.custom = "Custom  V(r) = …"`; then:
 ```typescript
@@ -544,9 +544,9 @@ export function validateExprClient(expr: string): string | null {
 ```
 Import `DEFAULT_EXPR, validateExprClient` in `urlState.ts`. Add `forceExpr: DEFAULT_EXPR` to `URL_DEFAULTS`.
 
-- [ ] **Step 4: Run** — `cd web && npx vitest run src/lib/forceLaw.test.ts src/lib/urlState.test.ts` → PASS.
+- [x] **Step 4: Run** — `cd web && npx vitest run src/lib/forceLaw.test.ts src/lib/urlState.test.ts` → PASS.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Wire custom V(r) through the force-law store, client, and deep links"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Wire custom V(r) through the force-law store, client, and deep links"`
 
 ---
 
@@ -559,7 +559,7 @@ Import `DEFAULT_EXPR, validateExprClient` in `urlState.ts`. Add `forceExpr: DEFA
 **Interfaces:**
 - Consumes: store `forcePreset`/`forceExpr`/`setForceExpr`, `validateExprClient`, force-law response with `expression`/`trusted`.
 
-- [ ] **Step 1: Implement the UI**
+- [x] **Step 1: Implement the UI**
 
 In `ForceLawView.tsx`:
 - Add `custom` to the preset selector options (label from `PRESET_LABELS`).
@@ -568,13 +568,13 @@ In `ForceLawView.tsx`:
 - In the level ladder, when a level's `trusted === false`, render it dimmed with a "not converged — not a real bound state" tag. Keep the `V(r)` curve and hydrogen-reference rendering exactly as-is (they are preset-agnostic).
 - Keep a short helper caption listing allowed names/functions: `r, pi, e; + - * / **; exp log sqrt sin cos tan sinh cosh tanh abs sign where(cond, a, b)`.
 
-- [ ] **Step 2: Typecheck + build** — `cd web && npm run build` (tsc --noEmit + vite build → web/dist). Expected: clean.
+- [x] **Step 2: Typecheck + build** — `cd web && npm run build` (tsc --noEmit + vite build → web/dist). Expected: clean.
 
-- [ ] **Step 3: Full suites** — from repo root `pytest -q` and `ruff check .`; from `web/` `npm test`. Expected: all green.
+- [x] **Step 3: Full suites** — from repo root `pytest -q` and `ruff check .`; from `web/` `npm test`. Expected: all green.
 
-- [ ] **Step 4: Live smoke** — `atomsim serve --port 8021 --no-browser` (background), then `curl "http://127.0.0.1:8021/api/forcelaw?preset=custom&expr=-1/r&l=0"` returns hydrogen levels with `trusted:true`; `curl "...expr=r.__class__"` returns 422. Stop the server.
+- [x] **Step 4: Live smoke** — `atomsim serve --port 8021 --no-browser` (background), then `curl "http://127.0.0.1:8021/api/forcelaw?preset=custom&expr=-1/r&l=0"` returns hydrogen levels with `trusted:true`; `curl "...expr=r.__class__"` returns 422. Stop the server.
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "Render the custom V(r) editor and trust flags in the Force-Law view"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "Render the custom V(r) editor and trust flags in the Force-Law view"`
 
 ---
 
