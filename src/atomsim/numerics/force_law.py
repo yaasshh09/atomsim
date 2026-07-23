@@ -15,6 +15,7 @@ import numpy as np
 
 from atomsim.analytic.hydrogen import energy as hydrogen_energy
 from atomsim.analytic.oscillator import oscillator_energy
+from atomsim.numerics.expression import compile_potential
 from atomsim.numerics.radial_solver import solve_radial_with_error
 from atomsim.provenance import Fidelity, Field, Provenance, Quantity
 from atomsim.systems import System, get_system
@@ -52,6 +53,7 @@ class Reference:
 class ForceLawLevel:
     radial_index: int
     energy: Quantity  # NUMERICAL, hartree, carries grid-halving error
+    trusted: bool = True  # False when the free-form trust gate flags the level
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,7 @@ class ForceLawResult:
     requested_count: int
     reference: Reference
     potential_curve: Field  # hartree vs bohr, EXACT
+    expression: str | None = None  # set for the free-form "custom" preset
 
 
 @dataclass(frozen=True)
@@ -334,4 +337,95 @@ def force_law_levels(
         requested_count=n_states,
         reference=reference,
         potential_curve=curve,
+    )
+
+
+# ---- free-form V(r): user-typed potential + trust gate -----------------------
+
+FREE_FORM_BOX_TOL = 5e-3   # hartree; box-doubling shift above this = not converged
+FREE_FORM_GRID_FRAC = 1e-2  # grid error above this fraction of |E| = not converged
+
+
+def _free_form_rmax(z: int, n_states: int) -> float:
+    return 40.0 * (n_states + 1) ** 2 / max(z, 1)
+
+
+def free_form_levels(
+    expr: str,
+    l: int,
+    system: str | System = "h",
+    n_states: int = 4,
+) -> ForceLawResult:
+    """Solve a user-typed radial potential V(r), gating each level for trust.
+
+    A level is trusted only when it is box-converged (energy stable under
+    doubling r_max, i.e. not continuum contamination) and grid-converged (the
+    grid-halving error is small relative to |E|, i.e. not fall-to-center).
+    Untrusted levels are returned and labeled, never silently dropped.
+    """
+    if l < 0:
+        raise ValueError(f"orbital quantum number l must be >= 0, got {l}")
+    if n_states < 1:
+        raise ValueError(f"n_states must be >= 1, got {n_states}")
+
+    potential = compile_potential(expr)  # raises ExpressionError on bad input
+
+    sys = system if isinstance(system, System) else get_system(system)
+    z = sys.Z
+    mu = sys.mu_ratio.value
+    r_max = _free_form_rmax(z, n_states)
+
+    # The expression must be finite on the interior grid before we trust a solve.
+    r_probe = np.linspace(r_max / CURVE_POINTS, r_max, CURVE_POINTS)
+    v_probe = np.asarray(potential(r_probe), dtype=float)
+    if not np.all(np.isfinite(v_probe)):
+        bad = r_probe[~np.isfinite(v_probe)][0]
+        raise ValueError(f"V(r) is not finite at r = {bad:g} bohr")
+
+    small = solve_radial_with_error(potential, l=l, mu_ratio=mu, n_states=n_states, r_max=r_max)
+    big = solve_radial_with_error(
+        potential, l=l, mu_ratio=mu, n_states=n_states, r_max=2.0 * r_max
+    )
+    threshold = float(potential(np.array([2.0 * r_max]))[0])
+
+    note = f"; counterfactual free-form V(r) = {expr}"
+    levels: list[ForceLawLevel] = []
+    for k in range(n_states):
+        e = small.energies[k]
+        if e.value >= threshold:  # above the continuum floor: not a bound state
+            continue
+        box_shift = abs(e.value - big.energies[k].value)
+        grid_err = e.provenance.error_estimate or 0.0
+        trusted = (
+            box_shift <= FREE_FORM_BOX_TOL
+            and grid_err <= FREE_FORM_GRID_FRAC * max(abs(e.value), 1e-6)
+        )
+        reason = (
+            "" if trusted
+            else "; UNTRUSTED (not box/grid-converged — not a real bound state)"
+        )
+        levels.append(
+            ForceLawLevel(
+                radial_index=len(levels),
+                energy=_tag(e, note + reason),
+                trusted=trusted,
+            )
+        )
+
+    bound_count = sum(1 for lvl in levels if lvl.trusted)
+    reference = _hydrogen_reference({}, z, mu, l, n_states)
+    curve = _sample_curve(potential, r_max, note)
+
+    return ForceLawResult(
+        preset_key="custom",
+        params={},
+        l=l,
+        z=z,
+        system_key=sys.key,
+        counterfactual=tuple(levels),
+        bound_count=bound_count,
+        requested_count=n_states,
+        reference=reference,
+        potential_curve=curve,
+        expression=expr,
     )
