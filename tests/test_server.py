@@ -669,6 +669,10 @@ def test_levels_perturbative_still_default(client):
     assert body["fine"][0]["energy"]["provenance"]["fidelity"] == "approximation"
 
 
-def test_levels_dirac_supercritical_is_422(client):
+def test_levels_dirac_high_z_rejected(client):
+    # No API-reachable hydrogenic system is supercritical: generic z{N} caps Z at 10
+    # (Z*alpha = 0.073, far below j+1/2), so a high-Z request is rejected at system
+    # resolution. The Dirac supercritical guard itself (Z*alpha >= j+1/2) is unit-tested
+    # directly in tests/test_dirac.py::test_supercritical_is_rejected.
     r = client.get("/api/levels", params={"system": "z200", "n_max": 1, "dirac": "true"})
     assert r.status_code == 422

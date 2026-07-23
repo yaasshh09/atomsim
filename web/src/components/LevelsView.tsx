@@ -76,12 +76,12 @@ function ScreenedLadder({ levels }: { levels: ScreenedLevels }) {
 
 export function LevelsView() {
   const {
-    n, l, system, fineStructure, levels, spectrum, loadLevels, loadSpectrum,
+    n, l, system, fineStructure, dirac, setDirac, levels, spectrum, loadLevels, loadSpectrum,
   } = useAppStore();
   useEffect(() => {
     void loadLevels();
     void loadSpectrum();
-  }, [system, fineStructure, loadLevels, loadSpectrum]);
+  }, [system, fineStructure, dirac, loadLevels, loadSpectrum]);
   if (!levels) return <p className="hint-block">loading levels…</p>;
   if (isScreenedLevels(levels)) return <ScreenedLadder levels={levels} />;
 
@@ -105,6 +105,12 @@ export function LevelsView() {
             · fine structure of n={n}{" "}
             <Badge provenance={fineForN[0].shift.provenance} />
           </span>
+        )}
+        {fineStructure && (
+          <label className="levels-model">
+            <input type="checkbox" checked={dirac} onChange={(e) => setDirac(e.target.checked)} />
+            Dirac (exact)
+          </label>
         )}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" className="levels-svg">
@@ -153,7 +159,7 @@ export function LevelsView() {
             return (
               <g>
                 <text x={(zx1 + zx2) / 2} y={26} textAnchor="middle" className="tick">
-                  n={n} shifts [µeV] — zoomed, APPROXIMATION
+                  n={n} shifts [µeV] — zoomed, {dirac ? "EXACT" : "APPROXIMATION"}
                 </text>
                 {fineForN.map((f, idx) => (
                   <g key={`${f.l}-${f.j}`}>
@@ -176,10 +182,12 @@ export function LevelsView() {
           })()}
       </svg>
       <p className="caption">
-        Gross levels are reduced-mass exact. The right column magnifies the α²
-        fine-structure shifts of the selected n — the two scales differ by ~10⁵ and are
-        labeled, never blended. States with equal j coincide at this order (e.g. 2s₁/₂ and
-        2p₁/₂ — the Lamb shift is beyond α² and honestly absent here).
+        Gross levels are reduced-mass exact. The right column magnifies the{" "}
+        {dirac ? "relativistic" : "α²"} shifts of the selected n — the two scales differ by ~10⁵
+        and are labeled, never blended.{" "}
+        {dirac
+          ? "Dirac is exact for a point nucleus: the energy depends on n and j only, so 2s₁/₂ and 2p₁/₂ coincide exactly. Reality splits them by the Lamb shift (QED), which this model deliberately omits — see the badge assumptions."
+          : "States with equal j coincide at this order (e.g. 2s₁/₂ and 2p₁/₂ — the Lamb shift is beyond α² and honestly absent here)."}
       </p>
     </div>
   );
