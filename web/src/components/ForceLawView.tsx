@@ -1,6 +1,12 @@
 import { scaleLinear } from "d3-scale";
-import { useEffect } from "react";
-import { allowedSpan, PRESET_LABELS, PRESET_PARAMS, type ForcePreset } from "../lib/forceLaw";
+import { useEffect, useState } from "react";
+import {
+  allowedSpan,
+  PRESET_LABELS,
+  PRESET_PARAMS,
+  validateExprClient,
+  type ForcePreset,
+} from "../lib/forceLaw";
 import { useAppStore } from "../state/store";
 import { Badge } from "./Badge";
 
@@ -8,13 +14,22 @@ const W = 680;
 const H = 460;
 const PAD = { top: 32, right: 24, bottom: 44, left: 64 };
 const L_CHOICES = [0, 1, 2, 3];
-const PRESETS: ForcePreset[] = ["powerlaw", "yukawa", "harmonic", "finitewell", "coulombcore"];
+const PRESETS: ForcePreset[] = [
+  "powerlaw",
+  "yukawa",
+  "harmonic",
+  "finitewell",
+  "coulombcore",
+  "custom",
+];
+const EXPR_HELP = "allowed: r, pi, e; + - * / **; exp log sqrt sin cos tan sinh cosh tanh abs sign where(cond, a, b)";
 
 export function ForceLawView() {
   const {
     forcePreset,
     forceParams,
     forceL,
+    forceExpr,
     forceViz,
     forceLaw,
     forceStatus,
@@ -22,6 +37,7 @@ export function ForceLawView() {
     setForcePreset,
     setForceParam,
     setForceL,
+    setForceExpr,
     setForceViz,
     loadForceLaw,
   } = useAppStore();
@@ -29,6 +45,22 @@ export function ForceLawView() {
   useEffect(() => {
     if (forceLaw === null && forceStatus === "idle") void loadForceLaw();
   }, [forceLaw, forceStatus, loadForceLaw]);
+
+  // The expression input is edited locally and committed (which re-solves) only
+  // on Enter or blur, so a half-typed formula never fires a doomed solve.
+  const [draft, setDraft] = useState(forceExpr);
+  useEffect(() => setDraft(forceExpr), [forceExpr]);
+  const draftError = validateExprClient(draft);
+  const submitExpr = () => {
+    const trimmed = draft.trim();
+    if (draftError === null && trimmed !== forceExpr) setForceExpr(trimmed);
+  };
+
+  const potLabel =
+    forcePreset === "custom"
+      ? `V(r) = ${forceLaw?.expression ?? forceExpr}`
+      : PRESET_LABELS[forcePreset];
+  const untrusted = forceLaw ? forceLaw.counterfactual.filter((c) => !c.trusted).length : 0;
 
   const cfProv = forceLaw?.counterfactual[0]?.energy.provenance ?? null;
   const refProv = forceLaw?.reference.items[0]?.energy.provenance ?? null;
@@ -77,6 +109,25 @@ export function ForceLawView() {
             />
           </label>
         ))}
+        {forcePreset === "custom" && (
+          <label className="forcelaw-expr">
+            V(r) =
+            <input
+              type="text"
+              value={draft}
+              spellCheck={false}
+              aria-label="custom potential expression in r"
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={submitExpr}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submitExpr();
+                }
+              }}
+            />
+          </label>
+        )}
         <label>
           Orbital l
           <select value={forceL} onChange={(e) => setForceL(Number(e.target.value))}>
@@ -99,8 +150,22 @@ export function ForceLawView() {
         </label>
       </div>
 
+      {forcePreset === "custom" && (
+        <>
+          <p className="hint-block">
+            Custom V(r) is a made-up force law — every level below is COUNTERFACTUAL. {EXPR_HELP}
+          </p>
+          {draftError !== null && <p className="error">{draftError}</p>}
+        </>
+      )}
       {forceStatus === "error" && <p className="error">{error}</p>}
       {forceStatus === "sampling" && <p className="hint-block">solving force law…</p>}
+      {untrusted > 0 && (
+        <p className="hint-block">
+          {untrusted} level{untrusted === 1 ? "" : "s"} could not be trusted (not box/grid
+          converged) and {untrusted === 1 ? "is" : "are"} drawn dashed — not real bound states.
+        </p>
+      )}
       {shortfall && (
         <p className="hint-block">
           Only {forceLaw!.bound_count} bound state
@@ -160,15 +225,16 @@ export function ForceLawView() {
                       x2={x2}
                       y1={y(c.energy_ev.value)}
                       y2={y(c.energy_ev.value)}
+                      style={c.trusted ? undefined : { opacity: 0.5, strokeDasharray: "5 3" }}
                     />
                     <text x={x2 + 4} y={y(c.energy_ev.value) - 4} className="forcelaw-label">
-                      {c.energy_ev.value.toFixed(2)} eV
+                      {c.energy_ev.value.toFixed(2)} eV{c.trusted ? "" : " ⚠"}
                     </text>
                   </g>
                 );
               })}
               <text x={PAD.left} y={PAD.top - 12} className="forcelaw-col">
-                V(r) and bound levels — {PRESET_LABELS[forcePreset]}
+                V(r) and bound levels — {potLabel}
               </text>
             </svg>
           ) : (
@@ -200,6 +266,7 @@ export function ForceLawView() {
                     x2={W - PAD.right}
                     y1={y(c.energy_ev.value)}
                     y2={y(c.energy_ev.value)}
+                    style={c.trusted ? undefined : { opacity: 0.5, strokeDasharray: "5 3" }}
                   />
                   <text
                     x={W - PAD.right}
@@ -207,7 +274,7 @@ export function ForceLawView() {
                     textAnchor="end"
                     className="forcelaw-label"
                   >
-                    {c.energy_ev.value.toFixed(2)} eV
+                    {c.energy_ev.value.toFixed(2)} eV{c.trusted ? "" : " ⚠"}
                   </text>
                 </g>
               ))}
@@ -215,7 +282,7 @@ export function ForceLawView() {
                 reference
               </text>
               <text x={(3 * W) / 4} y={PAD.top - 12} textAnchor="middle" className="forcelaw-col">
-                {forcePreset}
+                {forcePreset === "custom" ? "custom V(r)" : forcePreset}
               </text>
             </svg>
           )}
