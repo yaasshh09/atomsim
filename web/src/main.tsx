@@ -21,6 +21,7 @@ useAppStore.subscribe((s) => {
     fineStructure: s.fineStructure,
     dirac: s.dirac,
     bField: s.bField,
+    eField: s.eField,
     ghost: s.ghost,
     nucleusMode: s.nucleusMode,
     planeQuantity: s.planeQuantity,

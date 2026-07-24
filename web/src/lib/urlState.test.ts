@@ -101,10 +101,22 @@ describe("serializeAppUrl", () => {
       forceExpr: "-1/r",
       dirac: false,
       bField: 0,
+      eField: 0,
       config: null,
     };
     const parsed = parseAppUrl(serializeAppUrl(state));
     expect({ ...URL_DEFAULTS, ...parsed }).toEqual(state);
+  });
+
+  it("round-trips the e_field", () => {
+    const url = serializeAppUrl({ ...URL_DEFAULTS, eField: 40 });
+    expect(url).toContain("ef=40");
+    expect(parseAppUrl(url).eField).toBe(40);
+  });
+
+  it("omits ef when field is zero", () => {
+    const url = serializeAppUrl({ ...URL_DEFAULTS, eField: 0 });
+    expect(url).not.toContain("ef=");
   });
 
   it("round-trips the ghost toggle", () => {

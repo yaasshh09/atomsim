@@ -566,17 +566,17 @@ and in `loadLevels` pull `eField` and pass it:
 
 - [ ] **Step 6: Add URL parse/serialize**
 
-In `web/src/lib/urlState.ts`: add `eField: number;` to `UrlState` (near `bField`), `eField: 0,` to `URL_DEFAULTS`. In the parse function after the `b` parse add:
+In `web/src/lib/urlState.ts`: add `eField: number;` to `UrlState` (near `bField`), `eField: 0,` to `URL_DEFAULTS`. In the parse function after the `b` parse add (the short param is `ef`, not `e`: `e` is already the charge-multiplier param in `CONST_PARAMS` and reusing it corrupts the What-If deep links):
 
 ```ts
-  const e = Number(q.get("e"));
-  if (Number.isFinite(e) && e > 0) out.eField = e;
+  const ef = Number(q.get("ef"));
+  if (Number.isFinite(ef) && ef > 0) out.eField = ef;
 ```
 
-In serialize after the `b` line add (no fine-structure gate — Stark is independent):
+In serialize after the `b` line add (no fine-structure gate, Stark is independent):
 
 ```ts
-  if (state.eField > 0) q.set("e", String(state.eField));
+  if (state.eField > 0) q.set("ef", String(state.eField));
 ```
 
 - [ ] **Step 7: Serialize from main.tsx**

@@ -195,4 +195,11 @@ describe("force-law slice", () => {
     expect(useAppStore.getState().bField).toBe(4);
     expect(useAppStore.getState().levels).toBeNull();
   });
+
+  it("setEField clears cached levels", () => {
+    useAppStore.setState({ levels: { fake: true } as never, eField: 0 });
+    useAppStore.getState().setEField(25);
+    expect(useAppStore.getState().eField).toBe(25);
+    expect(useAppStore.getState().levels).toBeNull();
+  });
 });

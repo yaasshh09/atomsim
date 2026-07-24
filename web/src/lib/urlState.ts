@@ -26,6 +26,7 @@ export interface UrlState {
   fineStructure: boolean;
   dirac: boolean;
   bField: number;
+  eField: number;
   ghost: boolean;
   nucleusMode: NucleusMode;
   planeQuantity: PlaneQuantity;
@@ -51,6 +52,7 @@ export const URL_DEFAULTS: UrlState = {
   fineStructure: false,
   dirac: false,
   bField: 0,
+  eField: 0,
   ghost: false,
   nucleusMode: "marker",
   planeQuantity: "density",
@@ -152,6 +154,10 @@ export function parseAppUrl(search: string): Partial<UrlState> {
   const b = Number(q.get("b"));
   if (Number.isFinite(b) && b > 0) out.bField = b;
 
+  // param is "ef" (electric field): "e" is already the charge multiplier (CONST_PARAMS)
+  const ef = Number(q.get("ef"));
+  if (Number.isFinite(ef) && ef > 0) out.eField = ef;
+
   const ghost = q.get("ghost");
   if (ghost === "1" || ghost === "true") out.ghost = true;
   else if (ghost === "0" || ghost === "false") out.ghost = false;
@@ -216,6 +222,7 @@ export function serializeAppUrl(state: UrlState): string {
   if (state.fineStructure !== URL_DEFAULTS.fineStructure) q.set("fs", "1");
   if (state.dirac && state.fineStructure) q.set("dirac", "1");
   if (state.bField > 0 && state.fineStructure) q.set("b", String(state.bField));
+  if (state.eField > 0) q.set("ef", String(state.eField));
   if (state.ghost !== URL_DEFAULTS.ghost) q.set("ghost", "1");
   if (state.nucleusMode !== URL_DEFAULTS.nucleusMode) q.set("nucleus", state.nucleusMode);
   if (state.planeQuantity !== URL_DEFAULTS.planeQuantity) q.set("plane", state.planeQuantity);

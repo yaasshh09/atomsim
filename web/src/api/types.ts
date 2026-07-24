@@ -74,11 +74,21 @@ export interface SystemsResponse {
   systems: SystemInfo[];
 }
 
+export interface StarkSublevel {
+  n1: number;
+  n2: number;
+  m: number;
+  k: number;
+  energy: Quantity;
+  energy_ev: Quantity;
+}
+
 export interface GrossLevel {
   n: number;
   degeneracy: number;
   energy: Quantity;
   energy_ev: Quantity;
+  sublevels?: StarkSublevel[] | null;
 }
 
 export interface ZeemanSublevel {
@@ -110,6 +120,7 @@ export interface LevelsResponse {
   fine: FineLevel[] | null;
   dirac: boolean;
   b_field: number;
+  e_field: number;
 }
 
 export interface ScreenedOrbital {

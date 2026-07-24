@@ -87,7 +87,7 @@ This is ∝ F³ (the correct cubic order of the first neglected term), is small 
 ## 7. Web
 
 - Types: `StarkSublevel`, `GrossLevel.sublevels`, `LevelsResponse.e_field`.
-- `getLevels(..., eField = 0)`; URL param `e` (serialize whenever `eField > 0`, no fine-structure gate).
+- `getLevels(..., eField = 0)`; URL param `ef` (serialize whenever `eField > 0`, no fine-structure gate). Note: the short name is `ef`, not `e`, because `e` is already the charge-multiplier param in the What-If lab (`CONST_PARAMS`); reusing it would corrupt those deep links. The server/API param stays `e_field`.
 - Store `eField`/`setEField` (clears `levels`); `loadLevels` threads it; refetch on `eField` change.
 - Levels view: an always-on F slider (MV/m) beside the B slider; a zoomed Stark-manifold column for the selected n when `eField > 0` (reference line at the Bohr E_n, sublevels fanned by E−E_n, extreme-k states labelled), taking the right column ahead of the Zeeman/fine zoom; caption naming the linear-fan degeneracy signature and the perturbative/ionization caveat.
 
