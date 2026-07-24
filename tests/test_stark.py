@@ -102,6 +102,28 @@ def test_provenance_tier_and_error():
     assert err(20.0) > err(10.0) > 0.0
 
 
+def _quad_coeff(Z=1, mu=1.0):
+    # n=1 ground state is pure quadratic: coeff = (E - E0) / F^2.
+    mvm = 100.0
+    f = _field_au(mvm)
+    s = stark_sublevels(1, Z=Z, mu_ratio=mu, field_mv_per_m=mvm)[0]
+    return (s.energy.value - energy(1, Z=Z, mu_ratio=mu).value) / (f * f)
+
+
+def test_quadratic_scales_as_z4():
+    # E2 ~ 1/Z^4: He+ (Z=2) polarizability is 1/16 of hydrogen's. Tolerance 1e-6
+    # because extracting (E - E0) for He+ loses ~9 digits to cancellation (E0 = -2).
+    assert _quad_coeff(Z=2) == pytest.approx(_quad_coeff(Z=1) / 16.0, rel=1e-6)
+
+
+def test_quadratic_scales_as_mu3():
+    # E2 ~ 1/mu^3 (NOT 1/mu^4): positronium (mu=0.5) coeff is H coeff / 0.5^3 = x8
+    # (mu^4 would give x16). This locks the reduced-mass power the Z=mu=1
+    # polarizability test cannot see.
+    assert _quad_coeff(mu=0.5) == pytest.approx(_quad_coeff(mu=1.0) / 0.5**3, rel=1e-6)
+    assert _quad_coeff(mu=1.0) == pytest.approx(-9.0 / 4.0, rel=1e-6)
+
+
 def test_negative_field_rejected():
     with pytest.raises(ValueError):
         stark_sublevels(2, field_mv_per_m=-1.0)

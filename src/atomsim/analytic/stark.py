@@ -66,11 +66,15 @@ def stark_sublevels(
         for n1 in range(0, n - am):
             n2 = n - am - 1 - n1
             k = n1 - n2
+            # Hydrogenic scaling (energy unit mu*Z^2, length 1/(mu*Z), field mu^2*Z^3):
+            # linear shift ~ F/(Z*mu); quadratic ~ F^2/(Z^4 * mu^3). The reduced-mass
+            # powers differ (1 vs 3) and are NOT both (Z*mu): see the polarizability
+            # E2(n=1) = -(9/4) F^2 / (Z^4 mu^3), i.e. alpha = 9/(2 Z^4 mu^3) a.u.
             lin = 1.5 * n * k * f_au / zm
             quad = (
                 -(1.0 / 16.0) * n ** 4
                 * (17 * n * n - 3 * k * k - 9 * m * m + 19)
-                * f_au * f_au / (zm ** 4)
+                * f_au * f_au / (Z ** 4 * mu_ratio ** 3)
             )
             value = e_bohr + lin + quad
             err = abs(quad) * (f_au / f_ion) if f_au > 0.0 else 0.0
