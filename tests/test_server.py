@@ -707,3 +707,40 @@ def test_levels_zeeman_ignored_for_screened(client):
     r = client.get("/api/levels?system=he&fine_structure=true&b_field=5")
     assert r.status_code == 200
     assert "orbitals" in r.json()  # ScreenedLevelsModel, no sublevels
+
+
+def test_levels_stark_splits_gross_levels(client):
+    r = client.get("/api/levels?system=h&n_max=3&e_field=50")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["e_field"] == 50.0
+    g2 = next(g for g in body["gross"] if g["n"] == 2)
+    assert g2["sublevels"] is not None and len(g2["sublevels"]) == 4  # n^2
+    s0 = g2["sublevels"][0]
+    assert s0["energy"]["provenance"]["fidelity"] == "approximation"
+    assert "k" in s0 and "n1" in s0
+
+
+def test_levels_stark_absent_without_field(client):
+    r = client.get("/api/levels?system=h&n_max=2")
+    body = r.json()
+    assert body["e_field"] == 0.0
+    assert all(g.get("sublevels") is None for g in body["gross"])
+
+
+def test_levels_stark_independent_of_fine_structure(client):
+    r = client.get("/api/levels?system=h&n_max=2&fine_structure=false&e_field=30")
+    assert r.status_code == 200
+    g2 = next(g for g in r.json()["gross"] if g["n"] == 2)
+    assert g2["sublevels"] is not None and len(g2["sublevels"]) == 4
+
+
+def test_levels_stark_negative_field_rejected(client):
+    r = client.get("/api/levels?system=h&n_max=2&e_field=-1")
+    assert r.status_code == 422
+
+
+def test_levels_stark_ignored_for_screened(client):
+    r = client.get("/api/levels?system=he&e_field=50")
+    assert r.status_code == 200
+    assert "orbitals" in r.json()  # ScreenedLevelsModel, no sublevels

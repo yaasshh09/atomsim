@@ -24,6 +24,7 @@ from atomsim.analytic.hydrogen import (
     radial_wavefunction,
     validate_quantum_numbers,
 )
+from atomsim.analytic.stark import stark_sublevels
 from atomsim.analytic.wavefunction import WavefunctionValues, evaluate_state
 from atomsim.analytic.zeeman import zeeman_sublevels
 from atomsim.atoms import (
@@ -89,11 +90,21 @@ class LevelModel(BaseModel):
     shift_ev: QuantityModel
 
 
+class StarkSublevelModel(BaseModel):
+    n1: int
+    n2: int
+    m: int
+    k: int
+    energy: QuantityModel
+    energy_ev: QuantityModel
+
+
 class GrossLevelModel(BaseModel):
     n: int
     degeneracy: int
     energy: QuantityModel
     energy_ev: QuantityModel
+    sublevels: list[StarkSublevelModel] | None = None
 
 
 class ZeemanSublevelModel(BaseModel):
@@ -125,6 +136,7 @@ class LevelsResponse(BaseModel):
     fine: list[FineLevelModel] | None
     dirac: bool = False
     b_field: float = 0.0
+    e_field: float = 0.0
 
 
 class StateResponse(BaseModel):
@@ -390,7 +402,8 @@ def create_app() -> FastAPI:
                         alpha: float | None = None,
                         config: str | None = None,
                         dirac: bool = False,
-                        b_field: float = 0.0):
+                        b_field: float = 0.0,
+                        e_field: float = 0.0):
         if _is_screened(system):
             element = atom_for_key(system)
             cfg = _resolve_config(system, config)
@@ -419,16 +432,32 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=422, detail="alpha must be in (0, 0.5]")
         if b_field < 0.0:
             raise HTTPException(status_code=422, detail="b_field must be >= 0")
+        if e_field < 0.0:
+            raise HTTPException(status_code=422, detail="e_field must be >= 0")
         sys_ = _resolve_system(system)
         mu = sys_.mu_ratio.value
         alpha_used = ALPHA if alpha is None else alpha
         gross = []
         for n in range(1, n_max + 1):
             e = energy(n, Z=sys_.Z, mu_ratio=mu)
+            gsubs = None
+            if e_field > 0.0:
+                sss = stark_sublevels(
+                    n, Z=sys_.Z, mu_ratio=mu, field_mv_per_m=e_field,
+                )
+                gsubs = [
+                    StarkSublevelModel(
+                        n1=s.n1, n2=s.n2, m=s.m, k=s.k,
+                        energy=QuantityModel.from_quantity(s.energy),
+                        energy_ev=QuantityModel.from_quantity(_to_ev(s.energy)),
+                    )
+                    for s in sss
+                ]
             gross.append(GrossLevelModel(
                 n=n, degeneracy=2 * n * n,
                 energy=QuantityModel.from_quantity(e),
                 energy_ev=QuantityModel.from_quantity(_to_ev(e)),
+                sublevels=gsubs,
             ))
         fine = None
         if dirac or fine_structure:
@@ -485,7 +514,7 @@ def create_app() -> FastAPI:
         return LevelsResponse(
             system=SystemModel.from_system(sys_), n_max=n_max,
             fine_structure=fine_structure, alpha=alpha_used, gross=gross, fine=fine,
-            dirac=dirac, b_field=b_field,
+            dirac=dirac, b_field=b_field, e_field=e_field,
         )
 
     @app.get("/api/constants", response_model=ConstantsReportModel)
