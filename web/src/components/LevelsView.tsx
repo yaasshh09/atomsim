@@ -77,12 +77,12 @@ function ScreenedLadder({ levels }: { levels: ScreenedLevels }) {
 export function LevelsView() {
   const {
     n, l, system, fineStructure, dirac, setDirac, bField, setBField,
-    levels, spectrum, loadLevels, loadSpectrum,
+    eField, setEField, levels, spectrum, loadLevels, loadSpectrum,
   } = useAppStore();
   useEffect(() => {
     void loadLevels();
     void loadSpectrum();
-  }, [system, fineStructure, dirac, bField, loadLevels, loadSpectrum]);
+  }, [system, fineStructure, dirac, bField, eField, loadLevels, loadSpectrum]);
   if (!levels) return <p className="hint-block">loading levels…</p>;
   if (isScreenedLevels(levels)) return <ScreenedLadder levels={levels} />;
 
@@ -126,8 +126,18 @@ export function LevelsView() {
           </label>
         )}
         {!fineStructure && (
-          <span className="levels-field-hint">turn on fine structure to add a field</span>
+          <span className="levels-field-hint">
+            turn on fine structure to add a magnetic field
+          </span>
         )}
+        <label className="levels-field">
+          F{" "}
+          <input
+            type="range" min={0} max={100} step={0.5} value={eField}
+            onChange={(e) => setEField(Number(e.target.value))}
+          />
+          {eField > 0 ? ` ${eField.toFixed(1)} MV/m` : " 0 MV/m"}
+        </label>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" className="levels-svg">
         {levels.gross.map((g) => (
@@ -163,7 +173,7 @@ export function LevelsView() {
             </g>
           );
         })}
-        {fineStructure && fineForN.length > 0 &&
+        {eField === 0 && fineStructure && fineForN.length > 0 &&
           (() => {
             const bohrN = grossE.get(n) ?? 0;
             const shifts = fineForN.map((f) => f.shift_ev.value);
@@ -240,6 +250,47 @@ export function LevelsView() {
               </g>
             );
           })()}
+        {eField > 0 &&
+          (() => {
+            const gsel = levels.gross.find((g) => g.n === n);
+            const subs = gsel?.sublevels ?? [];
+            if (subs.length === 0) return null;
+            const bohrN = gsel!.energy_ev.value;
+            const shifts = subs.map((s) => s.energy_ev.value - bohrN);
+            const lo = Math.min(...shifts);
+            const hi = Math.max(...shifts);
+            const pad = (hi - lo || 1e-9) * 0.15;
+            const yz = scaleLinear([lo - pad, hi + pad], [H - 60, 48]);
+            const zx1 = 470;
+            const zx2 = 610;
+            const kMax = Math.max(...subs.map((s) => Math.abs(s.k)));
+            return (
+              <g>
+                <text x={(zx1 + zx2) / 2} y={26} textAnchor="middle" className="tick">
+                  n={n} Stark manifold [meV] (APPROXIMATION)
+                </text>
+                <line x1={zx1} x2={zx2} y1={yz(0)} y2={yz(0)} className="zero" opacity={0.5} />
+                {subs.map((s) => {
+                  const yS = yz(s.energy_ev.value - bohrN);
+                  const label = Math.abs(s.k) === kMax && s.m === 0;
+                  return (
+                    <g key={`${s.n1}-${s.n2}-${s.m}`}>
+                      <line
+                        x1={zx1} x2={zx2} y1={yS} y2={yS}
+                        className={s.k === 0 ? "rung" : "rung rung-active"}
+                        opacity={0.8}
+                      />
+                      {label && (
+                        <text x={zx2 + 6} y={yS} dy="0.32em" className="tick">
+                          k={s.k}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })()}
       </svg>
       <p className="caption">
         Gross levels are reduced-mass exact. The right column magnifies the{" "}
@@ -254,6 +305,16 @@ export function LevelsView() {
             Zeeman, spacing g_J·µ_B·B); as B rises they reorganize toward the Paschen-Back
             pattern where (m_l, m_s) become the good labels. Linear model — the diamagnetic
             B² term is omitted.
+          </>
+        )}
+        {eField > 0 && (
+          <>
+            {" "}An electric field splits each n-shell into n² parabolic (n₁,n₂,m)
+            sublevels fanned by the electric quantum number k = n₁−n₂. The splitting is
+            linear in F, which is hydrogen's accidental l-degeneracy showing itself: a
+            first-order shift appears here that non-degenerate atoms (quadratic only) never
+            get. Second-order model on the gross shells; the perturbation series is
+            asymptotic and breaks down near field ionization, so read the badge.
           </>
         )}
       </p>
